@@ -1,11 +1,11 @@
-use std::{path::Path, str::FromStr};
+use std::{path::Path, str::FromStr, sync::Arc};
 
 use chrono::NaiveDate;
 use num_bigint::ToBigInt;
 use serde::Deserialize;
 use serde_yaml::{Mapping, Sequence};
 
-use crate::statics::*;
+use crate::resources::*;
 
 #[derive(Deserialize)]
 pub struct DrugWarsConfig {
@@ -35,12 +35,12 @@ pub fn get_statics_from_config(
     for drug in &drugwars_config.drugs {
         let name = drug.as_mapping().unwrap()["name"].as_str().unwrap();
         let price = drug.as_mapping().unwrap()["price"].as_f64().unwrap() * 10000.;
-        drugs.0.insert(
+        drugs.insert(
             name.to_owned(),
-            Drug {
+            Arc::new(Drug {
                 name: name.to_owned(),
                 nominal_price: price.to_bigint().unwrap(),
-            },
+            }),
         );
     }
 
@@ -57,12 +57,12 @@ pub fn get_statics_from_config(
             .as_f64()
             .unwrap() as f32;
 
-        locations.0.insert(
+        locations.insert(
             name.to_owned(),
-            Location {
+            Arc::new(Location {
                 name: name.to_owned(),
                 position: Position { lat, long },
-            },
+            }),
         );
     }
 
@@ -84,13 +84,13 @@ pub fn get_statics_from_config(
             ammo = Some(weapon["ammo"].as_str().unwrap().to_owned())
         }
 
-        items.0.insert(
+        items.insert(
             name.to_owned(),
-            Item {
+            Arc::new(Item {
                 name: name.to_owned(),
                 nominal_price: price.to_bigint().unwrap(),
                 kind: ItemKind::Weapon(Weapon { ammo, damage }),
-            },
+            }),
         );
     }
 
@@ -105,13 +105,13 @@ pub fn get_statics_from_config(
         let name = ammo["name"].as_str().unwrap();
         let price = ammo["price"].as_f64().unwrap() * 10000.;
 
-        items.0.insert(
+        items.insert(
             name.to_owned(),
-            Item {
+            Arc::new(Item {
                 name: name.to_owned(),
                 nominal_price: price.to_bigint().unwrap(),
                 kind: ItemKind::Ammo,
-            },
+            }),
         );
     }
 
@@ -127,13 +127,13 @@ pub fn get_statics_from_config(
         let price = armor["price"].as_f64().unwrap() * 10000.;
         let block = armor["block"].as_f64().unwrap() as f32;
 
-        items.0.insert(
+        items.insert(
             name.to_owned(),
-            Item {
+            Arc::new(Item {
                 name: name.to_owned(),
                 nominal_price: price.to_bigint().unwrap(),
                 kind: ItemKind::Armor(Armor { block }),
-            },
+            }),
         );
     }
 
@@ -145,7 +145,7 @@ pub fn get_statics_from_config(
             .into_iter()
             .map(|v| v.as_str().unwrap().to_owned())
             .collect::<Vec<_>>();
-        messages.0.insert(key.to_owned(), val);
+        messages.insert(key.to_owned(), val);
     }
 
     (drugs, locations, items, messages)

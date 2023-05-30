@@ -1,7 +1,13 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    ops::Deref,
+    sync::{Arc, RwLock, RwLockReadGuard},
+};
 
 use chrono::NaiveDate;
 use num_bigint::BigInt;
+
+use crate::{resources::Location, error::{Result, Error}};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DealerStatus {
@@ -10,8 +16,36 @@ pub enum DealerStatus {
     Dead(NaiveDate),
 }
 
+impl DealerStatus {
+    pub fn pretty(&self) -> String {
+        match self {
+            DealerStatus::Available => "Available".to_owned(),
+            DealerStatus::Flying => "Flying".to_owned(),
+            DealerStatus::Dead(since) => format!("Dead since {}", since.format("%Y-%m-%d")),
+        }
+    }
+}
+
 #[derive(Default)]
-pub struct Dealers(pub HashMap<String, Dealer>);
+pub struct Dealers(pub HashMap<String, Arc<RwLock<Dealer>>>);
+impl Deref for Dealers {
+    type Target = HashMap<String, Arc<RwLock<Dealer>>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Dealers {
+    pub fn get_dealer(&self, nick: &str) -> Result<RwLockReadGuard<Dealer>> {
+        match self.get(nick) {
+            Some(dealer) => Ok(dealer.read().unwrap()),
+            None => Err(Error::DealerNotFound(nick.to_owned())),
+        }
+    }
+}
+
+
 
 pub struct Dealer {
     pub nick: String,
@@ -19,7 +53,7 @@ pub struct Dealer {
     pub health: f32,
     pub money: BigInt,
     pub laundered_money: BigInt,
-    pub location: String,
+    pub location: Arc<Location>,
     pub capacity: usize,
     //pub owned_drugs: HashMap<String, HashMap<String, OwnedElement>>,
     //pub owned_items: HashMap<String, HashMap<String, OwnedElement>>,

@@ -1,24 +1,33 @@
 pub mod config;
 pub mod dealer;
-pub mod statics;
+pub mod render;
+pub mod renderer;
+pub mod resources;
 pub mod utils;
+pub mod error;
 
-use std::error::Error;
+use std::{
+    sync::{Arc, RwLock},
+};
 
 use chrono::Duration;
 use config::{get_settings_from_config, get_statics_from_config, Settings};
 use dealer::{Dealer, DealerStatus, Dealers};
+use error::{Error, Result};
 use ircie::{
     format::{Color, Msg},
     system::IntoResponse,
-    system_params::ResMut,
+    system_params::{Arguments, Res, ResMut},
     Irc, IrcPrefix,
 };
 use num_bigint::ToBigInt;
+use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
+use render::{render_admin_help, render_help, render_info};
+use resources::{DrugWarsRng, Locations};
 use utils::load_config;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<()> {
     env_logger::init();
 
     let drugwars_config = load_config("drugwars_config.yaml").await?;
@@ -41,9 +50,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await
         .add_resource(Dealers::default())
         .await
+        .add_resource(DrugWarsRng(StdRng::from_entropy()))
+        .await
         .add_interval_task(std::time::Duration::from_secs(dur), new_day)
         .await
+        .add_system("melp?", melp)
+        .await
         .add_system("register", register)
+        .await
+        .add_system("i", dealer_info)
+        .await
+        .add_system("h", show_help)
+        .await
+        .add_system("ha", show_admin_help)
+        .await
+        .add_system("test", test_args)
         .await;
 
     irc.run().await?;
@@ -60,26 +81,52 @@ fn new_day(mut settings: ResMut<Settings>) -> impl IntoResponse {
         .text(settings.current_day.format("%Y-%m-%d").to_string())
 }
 
-fn register(prefix: IrcPrefix, mut dealers: ResMut<Dealers>) -> impl IntoResponse {
+fn test_args(arguments: Arguments) -> impl IntoResponse {
+    format!("yo {}", arguments[0])
+}
+
+fn register(
+    prefix: IrcPrefix,
+    mut dealers: ResMut<Dealers>,
+    locations: Res<Locations>,
+    mut rng: ResMut<DrugWarsRng>,
+) -> impl IntoResponse {
     if dealers.0.contains_key(prefix.nick) {
-        return Msg::new()
-            .text(prefix.nick)
-            .text(": You already registerd.");
+        return Err(Error::AlreadyRegistered(prefix.nick.to_owned()));
     }
+
+    let location = locations.values().choose(&mut rng.0).unwrap().clone();
 
     dealers.0.insert(
         prefix.nick.to_owned(),
-        Dealer {
+        Arc::new(RwLock::new(Dealer {
             nick: prefix.nick.to_owned(),
             has_attacked: false,
             health: 100.,
             money: 10000000.to_bigint().unwrap(),
             laundered_money: 0.to_bigint().unwrap(),
-            location: "aa".to_owned(),
+            location,
             capacity: 10,
             status: DealerStatus::Available,
-        },
+        })),
     );
 
-    Msg::new().text(prefix.nick).text(": Get Rich or Die Tryin")
+    Ok(Msg::new().text(prefix.nick).text(": Get Rich or Die Tryin"))
+}
+
+fn dealer_info(prefix: IrcPrefix, dealers: Res<Dealers>) -> Result<Vec<String>> {
+    let dealer = dealers.get_dealer(prefix.nick)?;
+    Ok(render_info(&dealer))
+}
+
+fn melp() -> impl IntoResponse {
+    "\x01ACTION explodes.\x01"
+}
+
+fn show_help() -> impl IntoResponse {
+    render_help()
+}
+
+fn show_admin_help() -> impl IntoResponse {
+    render_admin_help()
 }

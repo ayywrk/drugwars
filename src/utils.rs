@@ -52,3 +52,43 @@ impl PrettyAmount for usize {
             .join(",")
     }
 }
+
+pub trait StringManips {
+    fn irc_safe_len(&self) -> usize;
+    fn pretty_truncate(&self, max_width: usize) -> String;
+}
+
+impl<T: std::fmt::Display> StringManips for T {
+    fn pretty_truncate(&self, max_width: usize) -> String {
+        assert!(max_width > 3);
+
+        if self.irc_safe_len() <= max_width {
+            return self.to_string();
+        }
+
+        format!("{}...", &self.to_string()[..(max_width - 3)])
+    }
+
+    fn irc_safe_len(&self) -> usize {
+        self.to_string()
+            .replace("\x0300", "")
+            .replace("\x0301", "")
+            .replace("\x0302", "")
+            .replace("\x0303", "")
+            .replace("\x0304", "")
+            .replace("\x0305", "")
+            .replace("\x0306", "")
+            .replace("\x0307", "")
+            .replace("\x0308", "")
+            .replace("\x0309", "")
+            .replace("\x0310", "")
+            .replace("\x0311", "")
+            .replace("\x0312", "")
+            .replace("\x0313", "")
+            .replace("\x0314", "")
+            .replace("\x0315", "")
+            .chars()
+            .filter(|c| !['\x02', '\x1d', '\x1f', '\x1e', '\x12', '\x0f'].contains(c))
+            .count()
+    }
+}
