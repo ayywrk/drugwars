@@ -1,0 +1,201 @@
+settings:
+  day_duration: 300 # default is 5 mins (300)
+  start_day: 1993-04-20
+  save_path: save.yaml
+  width: 120
+
+locations:
+  - name: Beijing, China
+    position:
+      lat: 39.9042
+      long: 116.4074
+  - name: Boston, USA
+    position:
+      lat: 42.3601
+      long: -71.0589
+  - name: Detroit, USA
+    position:
+      lat: 42.3314
+      long: -83.0458
+  - name: London, England
+    position:
+      lat: 51.5072
+      long: -0.1276
+  - name: Los Angeles, USA
+    position:
+      lat: 34.0522
+      long: -118.2437
+  - name: Miami, USA
+    position:
+      lat: 25.7617
+      long: -80.1918
+  - name: Mowcow, Russia
+    position:
+      lat: 55.7558
+      long: 37.6173
+  - name: New York, USA
+    position:
+      lat: 40.7128
+      long: -74.0060
+  - name: Paris, France
+    position:
+      lat: 48.8566
+      long: 2.3522
+  - name: San Francisco, USA
+    position:
+      lat: 37.7749
+      long: -122.4194
+  - name: St Petersburg, Russia
+    position:
+      lat: 59.9343
+      long: -30.3351
+  - name: Sydney, Australia
+    position:
+      lat: -33.8688
+      long: 151.2093
+  - name: Toronto, Canada
+    position:
+      lat: 43.6532
+      long: -79.3832
+  - name: Vancouver, Canada
+    position:
+      lat: 49.2827
+      long: -123.1207
+  - name: Bogota, Colombia
+    position:
+      lat: 4.7110
+      long: -74.0721
+  - name: Johannesburg, South Africa
+    position:
+      lat: -26.2041
+      long: 28.0473
+
+drugs:
+  - name: Cocaine
+    price: 6500
+  - name: Crack
+    price: 8000
+  - name: Ecstasy
+    price: 3500
+  - name: Estradiol
+    price: 1000
+  - name: Fentanyl
+    price: 1300
+  - name: Hashish
+    price: 600
+  - name: Heroin
+    price: 4000
+  - name: Ice
+    price: 850
+  - name: Kat
+    price: 650
+  - name: Krokodil
+    price: 12
+  - name: LSD
+    price: 2200
+  - name: MDA
+    price: 3300
+  - name: Morphine
+    price: 6200
+  - name: Mushrooms
+    price: 550
+  - name: Opium
+    price: 400
+  - name: PCP
+    price: 1200
+  - name: Peyote
+    price: 800
+  - name: Loud
+    price: 420
+  - name: Special K
+    price: 2700
+  - name: Speed
+    price: 3900
+
+items:
+
+  weapons:
+    - name: Knife
+      price: 100
+      damage: 10
+    - name: Pistol
+      price: 500
+      damage: 15
+      ammo: Pistol round
+    - name: Shotgun
+      price: 2500
+      damage: 20
+      ammo: Shotgun shell
+    - name: Machine gun
+      price: 4000
+      damage: 25
+      ammo: Machine gun round
+    - name: Flamethrower
+      price: 7500000
+      damage: 30
+      ammo: Gas canister
+    - name: Rocket launcher
+      price: 1000000
+      damage: 35
+      ammo: Rocket
+    - name: Area disrupter
+      price: 5000000
+      damage: 50
+      ammo: Energy globe
+
+  ammos:
+    - name: Pistol round
+      price: 5
+    - name: Shotgun shell
+      price: 80
+    - name: Machine gun round
+      price: 1000
+    - name: Gas canister
+      price: 20000
+    - name: Rocket
+      price: 500000
+    - name: Energy globe
+      price: 2500000
+
+  armors:
+    - name: Leather coat
+      price: 10000
+      block: 15
+    - name: Bulletproof vest
+      price: 250000
+      block: 35
+
+messages:
+  price_up:
+    - acidvegas failed to synthetize some %DRUG.
+    - sht got grumpy and destroyed a pile of %DRUG.
+    - alghazi snorted all the %DRUG and stepped on his rug!
+    - blowfish made a %DRUG soup but then dropped it on the floor.
+    - The smuggler of some %DRUG was killed by a rival dealer.
+    - The pilot of a %DRUG shipment fell asleep and crashed.
+    - The HIE monster came and ate all the %DRUG.
+    - Gang warfare is keeping %DRUG off the streets.
+    - Racoons broke into a crate of %DRUG, eating some and dying on the rest.
+    - Cops burst into a %DRUG warehouse, seizing everything.
+    - A big scary monster came and bit %DRUG in the leg.
+  price_up_end:
+    - Prices are astronomical!
+    - Prices are insanely high!
+    - Prices are outrageous!
+    - Prices go through the roof!
+    - Prices are higher than labatu!
+    - Prices are higher than the people who use your goods!
+  price_down:
+    - vap0r came back with a big load of %DRUG.
+    - A boatload of %DRUG arrives.
+    - A police warehouse is broken into and %DRUG is stolen.
+    - A new source of %DRUG is found.
+    - Crates of %DRUG were discovered floating in the ocean.
+    - Someone found %DRUG in blowfish bowl.
+  price_down_end:
+    - Prices are lower than the Marianas Trench!
+    - Prices nose dive!
+    - Prices plummet!
+    - Prices drop like lead balloons!
+    - Prices are rock bottom!
+  
