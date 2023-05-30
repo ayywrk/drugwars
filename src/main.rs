@@ -1,12 +1,15 @@
 pub mod config;
 pub mod dealer;
+pub mod element;
+pub mod error;
+pub mod location_data;
 pub mod render;
 pub mod renderer;
 pub mod resources;
 pub mod utils;
-pub mod error;
 
 use std::{
+    collections::HashMap,
     sync::{Arc, RwLock},
 };
 
@@ -20,9 +23,10 @@ use ircie::{
     system_params::{Arguments, Res, ResMut},
     Irc, IrcPrefix,
 };
+use location_data::{LocationData, SingleLocationData};
 use num_bigint::ToBigInt;
 use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
-use render::{render_admin_help, render_help, render_info};
+use render::{render_admin_help, render_help, render_info, render_market};
 use resources::{DrugWarsRng, Locations};
 use utils::load_config;
 
@@ -36,8 +40,20 @@ async fn main() -> Result<()> {
     let settings = get_settings_from_config(&drugwars_config, "drugwars_config.yaml");
     let dur = settings.day_duration as u64;
 
+    let mut rng = DrugWarsRng(StdRng::from_entropy());
+
+    let mut loc_data = LocationData::default();
+    for loc in locations.values() {
+        loc_data.0.insert(
+            loc.clone(),
+            Arc::new(RwLock::new(SingleLocationData::default())),
+        );
+    }
+    loc_data.update_markets(&drugs, &items, &mut rng.0);
+
     let mut irc = Irc::from_config("irc_config.yaml").await?;
 
+    // -- resources
     irc.add_resource(drugs)
         .await
         .add_resource(items)
@@ -50,17 +66,25 @@ async fn main() -> Result<()> {
         .await
         .add_resource(Dealers::default())
         .await
-        .add_resource(DrugWarsRng(StdRng::from_entropy()))
+        .add_resource(rng)
         .await
-        .add_interval_task(std::time::Duration::from_secs(dur), new_day)
-        .await
-        .add_system("melp?", melp)
+        .add_resource(loc_data)
+        .await;
+
+    // -- intervals
+    irc.add_interval_task(std::time::Duration::from_secs(dur), new_day)
+        .await;
+
+    // -- systems
+    irc.add_system("melp?", melp)
         .await
         .add_system("register", register)
         .await
         .add_system("i", dealer_info)
         .await
         .add_system("h", show_help)
+        .await
+        .add_system("m", show_market)
         .await
         .add_system("ha", show_admin_help)
         .await
@@ -76,8 +100,8 @@ fn new_day(mut settings: ResMut<Settings>) -> impl IntoResponse {
     settings.current_day += Duration::days(1);
 
     Msg::new()
-        .text("new day! ")
-        .color(Color::Cyan)
+        .text("new day: ")
+        .color(Color::Green)
         .text(settings.current_day.format("%Y-%m-%d").to_string())
 }
 
@@ -95,7 +119,15 @@ fn register(
         return Err(Error::AlreadyRegistered(prefix.nick.to_owned()));
     }
 
+    let mut owned_drugs = HashMap::default();
+    let mut owned_items = HashMap::default();
+
     let location = locations.values().choose(&mut rng.0).unwrap().clone();
+
+    for loc in locations.values() {
+        owned_drugs.insert(loc.clone(), HashMap::default());
+        owned_items.insert(loc.clone(), HashMap::default());
+    }
 
     dealers.0.insert(
         prefix.nick.to_owned(),
@@ -107,6 +139,8 @@ fn register(
             laundered_money: 0.to_bigint().unwrap(),
             location,
             capacity: 10,
+            owned_drugs,
+            owned_items,
             status: DealerStatus::Available,
         })),
     );
@@ -120,7 +154,7 @@ fn dealer_info(prefix: IrcPrefix, dealers: Res<Dealers>) -> Result<Vec<String>> 
 }
 
 fn melp() -> impl IntoResponse {
-    "\x01ACTION explodes.\x01"
+    Msg::new().text("explodes.").as_action()
 }
 
 fn show_help() -> impl IntoResponse {
@@ -129,4 +163,24 @@ fn show_help() -> impl IntoResponse {
 
 fn show_admin_help() -> impl IntoResponse {
     render_admin_help()
+}
+
+fn show_market(
+    prefix: IrcPrefix,
+    settings: Res<Settings>,
+    mut rng: ResMut<DrugWarsRng>,
+    dealers: Res<Dealers>,
+    locations: Res<LocationData>,
+) -> Result<Vec<String>> {
+    let dealer = dealers.get_dealer(prefix.nick)?;
+
+    let loc_data = locations.get(&dealer.location).unwrap();
+
+    Ok(render_market(
+        settings.width,
+        &mut rng.0,
+        prefix.nick,
+        &dealer,
+        &loc_data.read().unwrap(),
+    ))
 }

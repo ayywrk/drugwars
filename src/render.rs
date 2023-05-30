@@ -1,5 +1,10 @@
+use ircie::format::{Color, Msg};
+use itertools::Itertools;
+use rand::RngCore;
+
 use crate::{
     dealer::Dealer,
+    location_data::SingleLocationData,
     renderer::{RenderBox, RenderBoxContent, Renderer},
     utils::{PrettyAmount, PrettyMoney},
 };
@@ -18,10 +23,7 @@ pub fn render_info(dealer: &Dealer) -> Vec<String> {
                         "money laundered".to_owned(),
                         dealer.laundered_money.pretty_money(),
                     ])
-                    .add_row([
-                        "location".to_owned(),
-                        dealer.location.name.clone(),
-                    ])
+                    .add_row(["location".to_owned(), dealer.location.name.clone()])
                     .add_row(["capacity".to_owned(), dealer.capacity.pretty_amount()])
                     .add_row(["status".to_owned(), dealer.status.pretty()])
                     .get()])
@@ -29,7 +31,6 @@ pub fn render_info(dealer: &Dealer) -> Vec<String> {
         )
         .build()
 }
-
 
 pub fn render_help() -> Vec<String> {
     Renderer::new(90)
@@ -141,6 +142,393 @@ pub fn render_admin_help() -> Vec<String> {
         .build()
 }
 
+pub fn render_market(
+    width: usize,
+    rng: &mut dyn RngCore,
+    nick: &str,
+    dealer: &Dealer,
+    location: &SingleLocationData,
+) -> Vec<String> {
+    let mut renderer = Renderer::new(width);
+
+    let drugs_owned = dealer.owned_drugs.get(&dealer.location).unwrap();
+    let items_owned = dealer.owned_items.get(&dealer.location).unwrap();
+
+    let mut rumor_content = RenderBoxContent::<1>::new();
+    /*
+    for rumor in &location.rumors {
+        if rumor.confirmed.is_none() {
+            let mut msg = PrivMsg::new();
+            let msg = msg
+                .color(IrcColor::Cyan)
+                .text("You hear a rumor that ")
+                .color(IrcColor::Yellow)
+                .text(&rumor.drug)
+                .color(IrcColor::Cyan);
+            let msg = match rumor.trend {
+                PriceTrend::Up => msg.text(" will be abundant in "),
+                PriceTrend::Down => msg.text(" will be scarce in "),
+            };
+
+            let msg = msg
+                .color(IrcColor::Purple)
+                .text(&rumor.location)
+                .color(IrcColor::Cyan)
+                .text(" tomorrow.")
+                .get();
+
+            rumor_content.add_row([msg.to_owned()]);
+        }
+    }
+
+    for price_mod in &location.price_mods {
+        match price_mod.trend {
+            PriceTrend::Up => {
+                let mut message = self
+                    .messages
+                    .get(&MessageKind::PriceUp)
+                    .unwrap()
+                    .choose(&mut rng)
+                    .unwrap()
+                    .to_owned()
+                    + " "
+                    + self
+                        .messages
+                        .get(&MessageKind::PriceUpEnd)
+                        .unwrap()
+                        .choose(&mut rng)
+                        .unwrap()
+                        .as_str();
+
+                let mut privmsg = PrivMsg::new();
+                let colored_drug = privmsg
+                    .color(IrcColor::Yellow)
+                    .text(&price_mod.drug)
+                    .color(IrcColor::Green)
+                    .get();
+
+                message = message.replace("%DRUG", colored_drug);
+
+                let mut msg = PrivMsg::new();
+                let msg = msg.color(IrcColor::Green).text(&message).reset().get();
+                rumor_content.add_row([msg.to_owned()]);
+            }
+
+            PriceTrend::Down => {
+                let mut message = self
+                    .messages
+                    .get(&MessageKind::PriceDown)
+                    .unwrap()
+                    .choose(&mut rng)
+                    .unwrap()
+                    .to_owned()
+                    + " "
+                    + self
+                        .messages
+                        .get(&MessageKind::PriceDownEnd)
+                        .unwrap()
+                        .choose(&mut rng)
+                        .unwrap()
+                        .as_str();
+
+                let mut privmsg = PrivMsg::new();
+                let colored_drug = privmsg
+                    .color(IrcColor::Yellow)
+                    .text(&price_mod.drug)
+                    .color(IrcColor::Orange)
+                    .get();
+
+                message = message.replace("%DRUG", colored_drug);
+
+                let mut msg = PrivMsg::new();
+                let msg = msg.color(IrcColor::Orange).text(&message).reset().get();
+                rumor_content.add_row([msg.to_owned()]);
+            }
+        };
+    }
+     */
+    let rumor_content = rumor_content.get();
+
+    let mut drugs_market_content = RenderBoxContent::new();
+    drugs_market_content
+        .header([
+            "Drug".to_owned(),
+            "Supply".to_owned(),
+            "Demand".to_owned(),
+            "Price".to_owned(),
+        ])
+        .sizes([18, 10, 10, 19]);
+
+    let mut drugs_owned_content = RenderBoxContent::new();
+    drugs_owned_content
+        .header([
+            "Drug".to_owned(),
+            "Amount".to_owned(),
+            "Bought at".to_owned(),
+        ])
+        .sizes([18, 10, 25]);
+
+    for pair in location.drug_market.iter().zip_longest(drugs_owned.iter()) {
+        match pair {
+            itertools::EitherOrBoth::Both(market, owned) => {
+                let market_drug_name = match drugs_owned.contains_key(market.0) {
+                    true => Msg::new()
+                        .color(Color::Cyan)
+                        .text(&market.0.name)
+                        .reset()
+                        .to_string(),
+                    false => market.0.name.to_owned(),
+                };
+
+                let owned_drug_name = match location.drug_market.contains_key(owned.0) {
+                    true => Msg::new()
+                        .color(Color::Cyan)
+                        .text(&owned.0.name)
+                        .reset()
+                        .to_string(),
+                    false => owned.0.name.to_owned(),
+                };
+
+                let mut msg = Msg::new();
+                msg = if market.1.price >= market.0.nominal_price {
+                    msg.color(Color::Green)
+                        .text("↗ ")
+                        .text(market.1.price.pretty_money())
+                } else {
+                    msg.color(Color::Red)
+                        .text("↘ ")
+                        .text(market.1.price.pretty_money())
+                };
+
+                msg = msg.reset();
+
+                drugs_market_content.add_row([
+                    market_drug_name,
+                    market.1.supply.pretty_amount(),
+                    market.1.demand.pretty_amount(),
+                    msg.to_string(),
+                ]);
+
+                drugs_owned_content.add_row([
+                    owned_drug_name,
+                    owned.1.amount.pretty_amount(),
+                    owned.1.bought_at.pretty_money(),
+                ]);
+            }
+            itertools::EitherOrBoth::Left(market) => {
+                let market_drug_name = match drugs_owned.contains_key(market.0) {
+                    true => Msg::new()
+                        .color(Color::Cyan)
+                        .text(&market.0.name)
+                        .reset()
+                        .to_string(),
+                    false => market.0.name.to_owned(),
+                };
+
+                let mut msg = Msg::new();
+                msg = if market.1.price >= market.0.nominal_price {
+                    msg.color(Color::Green)
+                        .text("↗ ")
+                        .text(market.1.price.pretty_money())
+                } else {
+                    msg.color(Color::Red)
+                        .text("↘ ")
+                        .text(market.1.price.pretty_money())
+                };
+
+                msg = msg.reset();
+
+                drugs_market_content.add_row([
+                    market_drug_name,
+                    market.1.supply.pretty_amount(),
+                    market.1.demand.pretty_amount(),
+                    msg.to_string(),
+                ]);
+            }
+            itertools::EitherOrBoth::Right(owned) => {
+                let owned_drug_name = match location.drug_market.contains_key(owned.0) {
+                    true => Msg::new()
+                        .color(Color::Cyan)
+                        .text(&owned.0.name)
+                        .reset()
+                        .to_string(),
+                    false => owned.0.name.to_owned(),
+                };
+
+                drugs_owned_content.add_row([
+                    owned_drug_name,
+                    owned.1.amount.pretty_amount(),
+                    owned.1.bought_at.pretty_money(),
+                ]);
+            }
+        }
+    }
+    let drugs_market_content = drugs_market_content.get();
+    let drugs_owned_content = drugs_owned_content.get();
+
+    let mut items_market_content = RenderBoxContent::new();
+    items_market_content
+        .header([
+            "Item".to_owned(),
+            "Supply".to_owned(),
+            "Demand".to_owned(),
+            "Price".to_owned(),
+        ])
+        .sizes([18, 10, 10, 19]);
+
+    let mut items_owned_content = RenderBoxContent::new();
+    items_owned_content
+        .header([
+            "Item".to_owned(),
+            "Amount".to_owned(),
+            "Bought at".to_owned(),
+        ])
+        .sizes([18, 10, 25]);
+
+    for pair in location.item_market.iter().zip_longest(items_owned.iter()) {
+        match pair {
+            itertools::EitherOrBoth::Both(market, owned) => {
+                let market_item_name = match items_owned.contains_key(market.0) {
+                    true => Msg::new()
+                        .color(Color::Cyan)
+                        .text(&market.0.name)
+                        .reset()
+                        .to_string(),
+                    false => market.0.name.to_owned(),
+                };
+
+                let owned_item_name = match location.item_market.contains_key(owned.0) {
+                    true => Msg::new()
+                        .color(Color::Cyan)
+                        .text(&owned.0.name)
+                        .reset()
+                        .to_string(),
+                    false => owned.0.name.to_owned(),
+                };
+
+                let mut msg = Msg::new();
+                msg = if market.1.price >= market.0.nominal_price {
+                    msg.color(Color::Green)
+                        .text("↗ ")
+                        .text(market.1.price.pretty_money())
+                } else {
+                    msg.color(Color::Red)
+                        .text("↘ ")
+                        .text(market.1.price.pretty_money())
+                };
+
+                msg = msg.reset();
+
+                items_market_content.add_row([
+                    market_item_name,
+                    market.1.supply.pretty_amount(),
+                    market.1.demand.pretty_amount(),
+                    msg.to_string(),
+                ]);
+
+                items_owned_content.add_row([
+                    owned_item_name,
+                    owned.1.amount.pretty_amount(),
+                    owned.1.bought_at.pretty_money(),
+                ]);
+            }
+            itertools::EitherOrBoth::Left(market) => {
+                let market_item_name = match items_owned.contains_key(market.0) {
+                    true => Msg::new()
+                        .color(Color::Cyan)
+                        .text(&market.0.name)
+                        .reset()
+                        .to_string(),
+                    false => market.0.name.to_owned(),
+                };
+
+                let mut msg = Msg::new();
+                msg = if market.1.price >= market.0.nominal_price {
+                    msg.color(Color::Green)
+                        .text("↗ ")
+                        .text(market.1.price.pretty_money())
+                } else {
+                    msg.color(Color::Red)
+                        .text("↘ ")
+                        .text(market.1.price.pretty_money())
+                };
+
+                msg = msg.reset();
+
+                items_market_content.add_row([
+                    market_item_name,
+                    market.1.supply.pretty_amount(),
+                    market.1.demand.pretty_amount(),
+                    msg.to_string(),
+                ]);
+            }
+            itertools::EitherOrBoth::Right(owned) => {
+                let owned_item_name = match location.item_market.contains_key(owned.0) {
+                    true => Msg::new()
+                        .color(Color::Cyan)
+                        .text(&owned.0.name)
+                        .reset()
+                        .to_string(),
+                    false => owned.0.name.to_owned(),
+                };
+
+                items_owned_content.add_row([
+                    owned_item_name,
+                    owned.1.amount.pretty_amount(),
+                    owned.1.bought_at.pretty_money(),
+                ]);
+            }
+        }
+    }
+    let items_market_content = items_market_content.get();
+    let items_owned_content = items_owned_content.get();
+
+    let rumor_box = RenderBox::new()
+        .headers([format!(
+            "{} ─ {} ─ {} ─ {} ─ {}",
+            nick,
+            format!("{:.2} hp", dealer.health),
+            dealer.money.pretty_money(),
+            dealer.location.name,
+            dealer.status.pretty()
+        )])
+        .add_content([&rumor_content])
+        .get();
+
+    let drugs_box = RenderBox::new()
+        .headers([
+            "Drug market".to_owned(),
+            format!(
+                "Owned drugs ({}/{})",
+                //pretty_print_amount(dealer.get_total_owned_local::<Drug>()),
+                0.pretty_amount(),
+                dealer.capacity.pretty_amount(),
+            ),
+        ])
+        .add_content([&drugs_market_content, &drugs_owned_content])
+        .get();
+
+    let items_box = RenderBox::new()
+        .headers([
+            "Item market".to_owned(),
+            format!(
+                "Owned items ({}/{})",
+                //pretty_print_amount(dealer.get_total_owned_local::<Item>()),
+                0.pretty_amount(),
+                dealer.capacity.pretty_amount(),
+            ),
+        ])
+        .add_content([&items_market_content, &items_owned_content])
+        .get();
+
+    renderer
+        .add_box(&rumor_box)
+        .add_box(&drugs_box)
+        .add_box(&items_box);
+
+    renderer.build()
+}
+
 /*
 impl DrugWars {
     pub fn get_date_and_time(&self) -> String {
@@ -170,397 +558,6 @@ impl DrugWars {
         vec![self.get_date_and_time()]
     }
 
-    pub fn render_market(&self, nick: &str, dealer: &Dealer) -> Vec<String> {
-        let mut renderer = Renderer::new(self.settings.width);
-
-        let mut rng = self.rng.clone();
-
-        let location = self.locations.get(&dealer.location).unwrap();
-        let drugs_owned = dealer.get_owned_local::<Drug>();
-        let items_owned = dealer.get_owned_local::<Item>();
-
-        let mut rumor_content = RenderBoxContent::new();
-        for rumor in &location.rumors {
-            if rumor.confirmed.is_none() {
-                let mut msg = PrivMsg::new();
-                let msg = msg
-                    .color(IrcColor::Cyan)
-                    .text("You hear a rumor that ")
-                    .color(IrcColor::Yellow)
-                    .text(&rumor.drug)
-                    .color(IrcColor::Cyan);
-                let msg = match rumor.trend {
-                    PriceTrend::Up => msg.text(" will be abundant in "),
-                    PriceTrend::Down => msg.text(" will be scarce in "),
-                };
-
-                let msg = msg
-                    .color(IrcColor::Purple)
-                    .text(&rumor.location)
-                    .color(IrcColor::Cyan)
-                    .text(" tomorrow.")
-                    .get();
-
-                rumor_content.add_row([msg.to_owned()]);
-            }
-        }
-
-        for price_mod in &location.price_mods {
-            match price_mod.trend {
-                PriceTrend::Up => {
-                    let mut message = self
-                        .messages
-                        .get(&MessageKind::PriceUp)
-                        .unwrap()
-                        .choose(&mut rng)
-                        .unwrap()
-                        .to_owned()
-                        + " "
-                        + self
-                            .messages
-                            .get(&MessageKind::PriceUpEnd)
-                            .unwrap()
-                            .choose(&mut rng)
-                            .unwrap()
-                            .as_str();
-
-                    let mut privmsg = PrivMsg::new();
-                    let colored_drug = privmsg
-                        .color(IrcColor::Yellow)
-                        .text(&price_mod.drug)
-                        .color(IrcColor::Green)
-                        .get();
-
-                    message = message.replace("%DRUG", colored_drug);
-
-                    let mut msg = PrivMsg::new();
-                    let msg = msg.color(IrcColor::Green).text(&message).reset().get();
-                    rumor_content.add_row([msg.to_owned()]);
-                }
-
-                PriceTrend::Down => {
-                    let mut message = self
-                        .messages
-                        .get(&MessageKind::PriceDown)
-                        .unwrap()
-                        .choose(&mut rng)
-                        .unwrap()
-                        .to_owned()
-                        + " "
-                        + self
-                            .messages
-                            .get(&MessageKind::PriceDownEnd)
-                            .unwrap()
-                            .choose(&mut rng)
-                            .unwrap()
-                            .as_str();
-
-                    let mut privmsg = PrivMsg::new();
-                    let colored_drug = privmsg
-                        .color(IrcColor::Yellow)
-                        .text(&price_mod.drug)
-                        .color(IrcColor::Orange)
-                        .get();
-
-                    message = message.replace("%DRUG", colored_drug);
-
-                    let mut msg = PrivMsg::new();
-                    let msg = msg.color(IrcColor::Orange).text(&message).reset().get();
-                    rumor_content.add_row([msg.to_owned()]);
-                }
-            };
-        }
-        let rumor_content = rumor_content.get();
-
-        let mut drugs_market_content = RenderBoxContent::new();
-        drugs_market_content
-            .header([
-                "Drug".to_owned(),
-                "Supply".to_owned(),
-                "Demand".to_owned(),
-                "Price".to_owned(),
-            ])
-            .sizes([18, 10, 10, 19]);
-
-        let mut drugs_owned_content = RenderBoxContent::new();
-        drugs_owned_content
-            .header([
-                "Drug".to_owned(),
-                "Amount".to_owned(),
-                "Bought at".to_owned(),
-            ])
-            .sizes([18, 10, 25]);
-
-        for pair in location.drug_market.iter().zip_longest(drugs_owned.iter()) {
-            match pair {
-                itertools::EitherOrBoth::Both(market, owned) => {
-                    let drug = self.drugs.get(market.0).unwrap();
-
-                    let market_drug_name = match drugs_owned.contains_key(market.0) {
-                        true => PrivMsg::new()
-                            .color(IrcColor::Cyan)
-                            .text(market.0)
-                            .reset()
-                            .get()
-                            .to_owned(),
-                        false => market.0.to_owned(),
-                    };
-
-                    let owned_drug_name = match location.drug_market.contains_key(owned.0) {
-                        true => PrivMsg::new()
-                            .color(IrcColor::Cyan)
-                            .text(owned.0)
-                            .reset()
-                            .get()
-                            .to_owned(),
-                        false => owned.0.to_owned(),
-                    };
-
-                    let mut msg = PrivMsg::new();
-                    if market.1.price >= drug.nominal_price {
-                        msg.color(IrcColor::Green)
-                            .text("↗ ")
-                            .text(&pretty_print_money(market.1.price));
-                    } else {
-                        msg.color(IrcColor::Red)
-                            .text("↘ ")
-                            .text(&pretty_print_money(market.1.price));
-                    }
-                    msg.reset();
-
-                    drugs_market_content.add_row([
-                        market_drug_name,
-                        pretty_print_amount(market.1.supply),
-                        pretty_print_amount(market.1.demand),
-                        msg.get().to_owned(),
-                    ]);
-
-                    drugs_owned_content.add_row([
-                        owned_drug_name,
-                        pretty_print_amount(owned.1.amount),
-                        pretty_print_money(owned.1.bought_at),
-                    ]);
-                }
-                itertools::EitherOrBoth::Left(market) => {
-                    let drug = self.drugs.get(market.0).unwrap();
-
-                    let market_drug_name = match drugs_owned.contains_key(market.0) {
-                        true => PrivMsg::new()
-                            .color(IrcColor::Cyan)
-                            .text(market.0)
-                            .reset()
-                            .get()
-                            .to_owned(),
-                        false => market.0.to_owned(),
-                    };
-
-                    let mut msg = PrivMsg::new();
-                    if market.1.price >= drug.nominal_price {
-                        msg.color(IrcColor::Green)
-                            .text("↗ ")
-                            .text(&pretty_print_money(market.1.price));
-                    } else {
-                        msg.color(IrcColor::Red)
-                            .text("↘ ")
-                            .text(&pretty_print_money(market.1.price));
-                    }
-                    msg.reset();
-
-                    drugs_market_content.add_row([
-                        market_drug_name,
-                        pretty_print_amount(market.1.supply),
-                        pretty_print_amount(market.1.demand),
-                        msg.get().to_owned(),
-                    ]);
-                }
-                itertools::EitherOrBoth::Right(owned) => {
-                    let owned_drug_name = match location.drug_market.contains_key(owned.0) {
-                        true => PrivMsg::new()
-                            .color(IrcColor::Cyan)
-                            .text(owned.0)
-                            .reset()
-                            .get()
-                            .to_owned(),
-                        false => owned.0.to_owned(),
-                    };
-
-                    drugs_owned_content.add_row([
-                        owned_drug_name,
-                        pretty_print_amount(owned.1.amount),
-                        pretty_print_money(owned.1.bought_at),
-                    ]);
-                }
-            }
-        }
-        let drugs_market_content = drugs_market_content.get();
-        let drugs_owned_content = drugs_owned_content.get();
-
-        let mut items_market_content = RenderBoxContent::new();
-        items_market_content
-            .header([
-                "Item".to_owned(),
-                "Supply".to_owned(),
-                "Demand".to_owned(),
-                "Price".to_owned(),
-            ])
-            .sizes([18, 10, 10, 19]);
-
-        let mut items_owned_content = RenderBoxContent::new();
-        items_owned_content
-            .header([
-                "Item".to_owned(),
-                "Amount".to_owned(),
-                "Bought at".to_owned(),
-            ])
-            .sizes([18, 10, 25]);
-
-        for pair in location.item_market.iter().zip_longest(items_owned.iter()) {
-            match pair {
-                itertools::EitherOrBoth::Both(market, owned) => {
-                    let item = self.items.get(market.0).unwrap();
-
-                    let market_item_name = match items_owned.contains_key(market.0) {
-                        true => PrivMsg::new()
-                            .color(IrcColor::Cyan)
-                            .text(market.0)
-                            .reset()
-                            .get()
-                            .to_owned(),
-                        false => market.0.to_owned(),
-                    };
-
-                    let owned_item_name = match location.item_market.contains_key(owned.0) {
-                        true => PrivMsg::new()
-                            .color(IrcColor::Cyan)
-                            .text(owned.0)
-                            .reset()
-                            .get()
-                            .to_owned(),
-                        false => owned.0.to_owned(),
-                    };
-
-                    let mut msg = PrivMsg::new();
-                    if market.1.price >= item.nominal_price {
-                        msg.color(IrcColor::Green)
-                            .text("↗ ")
-                            .text(&pretty_print_money(market.1.price));
-                    } else {
-                        msg.color(IrcColor::Red)
-                            .text("↘ ")
-                            .text(&pretty_print_money(market.1.price));
-                    }
-                    msg.reset();
-
-                    items_market_content.add_row([
-                        market_item_name,
-                        pretty_print_amount(market.1.supply),
-                        pretty_print_amount(market.1.demand),
-                        msg.get().to_owned(),
-                    ]);
-
-                    items_owned_content.add_row([
-                        owned_item_name,
-                        pretty_print_amount(owned.1.amount),
-                        pretty_print_money(owned.1.bought_at),
-                    ]);
-                }
-                itertools::EitherOrBoth::Left(market) => {
-                    let item = self.items.get(market.0).unwrap();
-
-                    let market_item_name = match items_owned.contains_key(market.0) {
-                        true => PrivMsg::new()
-                            .color(IrcColor::Cyan)
-                            .text(market.0)
-                            .reset()
-                            .get()
-                            .to_owned(),
-                        false => market.0.to_owned(),
-                    };
-
-                    let mut msg = PrivMsg::new();
-                    if market.1.price >= item.nominal_price {
-                        msg.color(IrcColor::Green)
-                            .text("↗ ")
-                            .text(&pretty_print_money(market.1.price));
-                    } else {
-                        msg.color(IrcColor::Red)
-                            .text("↘ ")
-                            .text(&pretty_print_money(market.1.price));
-                    }
-                    msg.reset();
-
-                    items_market_content.add_row([
-                        market_item_name,
-                        pretty_print_amount(market.1.supply),
-                        pretty_print_amount(market.1.demand),
-                        msg.get().to_owned(),
-                    ]);
-                }
-                itertools::EitherOrBoth::Right(owned) => {
-                    let owned_item_name = match location.item_market.contains_key(owned.0) {
-                        true => PrivMsg::new()
-                            .color(IrcColor::Cyan)
-                            .text(owned.0)
-                            .reset()
-                            .get()
-                            .to_owned(),
-                        false => owned.0.to_owned(),
-                    };
-
-                    items_owned_content.add_row([
-                        owned_item_name,
-                        pretty_print_amount(owned.1.amount),
-                        pretty_print_money(owned.1.bought_at),
-                    ]);
-                }
-            }
-        }
-        let items_market_content = items_market_content.get();
-        let items_owned_content = items_owned_content.get();
-
-        let rumor_box = RenderBox::new()
-            .headers([format!(
-                "{} ─ {} ─ {} ─ {} ─ {}",
-                nick,
-                format!("{:.2} hp", dealer.health),
-                pretty_print_money(dealer.money),
-                dealer.location,
-                dealer.print_status()
-            )])
-            .add_content([&rumor_content])
-            .get();
-
-        let drugs_box = RenderBox::new()
-            .headers([
-                "Drug market".to_owned(),
-                format!(
-                    "Owned drugs ({}/{})",
-                    pretty_print_amount(dealer.get_total_owned_local::<Drug>()),
-                    pretty_print_amount(dealer.capacity),
-                ),
-            ])
-            .add_content([&drugs_market_content, &drugs_owned_content])
-            .get();
-
-        let items_box = RenderBox::new()
-            .headers([
-                "Item market".to_owned(),
-                format!(
-                    "Owned items ({}/{})",
-                    pretty_print_amount(dealer.get_total_owned_local::<Item>()),
-                    pretty_print_amount(dealer.capacity),
-                ),
-            ])
-            .add_content([&items_market_content, &items_owned_content])
-            .get();
-
-        renderer
-            .add_box(&rumor_box)
-            .add_box(&drugs_box)
-            .add_box(&items_box);
-
-        renderer.build()
-    }
 
     pub fn render_people(&self, dealer: &Dealer) -> Vec<String> {
         let location = self.locations.get(&dealer.location).unwrap();

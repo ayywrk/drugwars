@@ -7,7 +7,11 @@ use std::{
 use chrono::NaiveDate;
 use num_bigint::BigInt;
 
-use crate::{resources::Location, error::{Result, Error}};
+use crate::{
+    element::OwnedElement,
+    error::{Error, Result},
+    resources::{Drug, Item, Location},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DealerStatus {
@@ -45,8 +49,6 @@ impl Dealers {
     }
 }
 
-
-
 pub struct Dealer {
     pub nick: String,
     pub has_attacked: bool,
@@ -55,8 +57,8 @@ pub struct Dealer {
     pub laundered_money: BigInt,
     pub location: Arc<Location>,
     pub capacity: usize,
-    //pub owned_drugs: HashMap<String, HashMap<String, OwnedElement>>,
-    //pub owned_items: HashMap<String, HashMap<String, OwnedElement>>,
+    pub owned_drugs: HashMap<Arc<Location>, HashMap<Arc<Drug>, OwnedElement>>,
+    pub owned_items: HashMap<Arc<Location>, HashMap<Arc<Item>, OwnedElement>>,
     pub status: DealerStatus,
     //pub looters: HashSet<String>,
 }
