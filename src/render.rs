@@ -1,12 +1,13 @@
 use ircie::format::{Color, Msg};
 use itertools::Itertools;
-use rand::RngCore;
+use rand::{seq::SliceRandom, RngCore};
 
 use crate::{
     dealer::Dealer,
-    location_data::SingleLocationData,
+    location_data::{PriceTrend, SingleLocationData},
     renderer::{RenderBox, RenderBoxContent, Renderer},
-    utils::{PrettyAmount, PrettyMoney, StringManips, get_flight_price}, resources::{Location, Locations},
+    resources::{Location, Locations, Messages},
+    utils::{get_flight_price, PrettyAmount, PrettyMoney, StringManips},
 };
 
 pub fn render_info(dealer: &Dealer) -> Vec<String> {
@@ -144,10 +145,11 @@ pub fn render_admin_help() -> Vec<String> {
 
 pub fn render_market(
     width: usize,
-    rng: &mut dyn RngCore,
+    mut rng: &mut dyn RngCore,
     nick: &str,
     dealer: &Dealer,
     location: &SingleLocationData,
+    messages: &Messages,
 ) -> Vec<String> {
     let mut renderer = Renderer::new(width);
 
@@ -180,73 +182,63 @@ pub fn render_market(
             rumor_content.add_row([msg.to_owned()]);
         }
     }
+    */
 
     for price_mod in &location.price_mods {
         match price_mod.trend {
             PriceTrend::Up => {
-                let mut message = self
-                    .messages
-                    .get(&MessageKind::PriceUp)
+                let mut message = messages
+                    .get("price_up")
                     .unwrap()
                     .choose(&mut rng)
                     .unwrap()
                     .to_owned()
                     + " "
-                    + self
-                        .messages
-                        .get(&MessageKind::PriceUpEnd)
+                    + messages
+                        .get("price_up_end")
                         .unwrap()
                         .choose(&mut rng)
                         .unwrap()
                         .as_str();
 
-                let mut privmsg = PrivMsg::new();
-                let colored_drug = privmsg
-                    .color(IrcColor::Yellow)
-                    .text(&price_mod.drug)
-                    .color(IrcColor::Green)
-                    .get();
+                let colored_drug = Msg::new()
+                    .color(Color::Yellow)
+                    .text(&price_mod.drug.name)
+                    .color(Color::Green);
 
-                message = message.replace("%DRUG", colored_drug);
+                message = message.replace("%DRUG", &colored_drug.to_string());
 
-                let mut msg = PrivMsg::new();
-                let msg = msg.color(IrcColor::Green).text(&message).reset().get();
-                rumor_content.add_row([msg.to_owned()]);
+                let msg = Msg::new().color(Color::Green).text(&message).reset();
+                rumor_content.add_row([msg.to_string()]);
             }
 
             PriceTrend::Down => {
-                let mut message = self
-                    .messages
-                    .get(&MessageKind::PriceDown)
+                let mut message = messages
+                    .get("price_down")
                     .unwrap()
                     .choose(&mut rng)
                     .unwrap()
                     .to_owned()
                     + " "
-                    + self
-                        .messages
-                        .get(&MessageKind::PriceDownEnd)
+                    + messages
+                        .get("price_down_end")
                         .unwrap()
                         .choose(&mut rng)
                         .unwrap()
                         .as_str();
 
-                let mut privmsg = PrivMsg::new();
-                let colored_drug = privmsg
-                    .color(IrcColor::Yellow)
-                    .text(&price_mod.drug)
-                    .color(IrcColor::Orange)
-                    .get();
+                let colored_drug = Msg::new()
+                    .color(Color::Yellow)
+                    .text(&price_mod.drug.name)
+                    .color(Color::Orange);
 
-                message = message.replace("%DRUG", colored_drug);
+                message = message.replace("%DRUG", &colored_drug.to_string());
 
-                let mut msg = PrivMsg::new();
-                let msg = msg.color(IrcColor::Orange).text(&message).reset().get();
-                rumor_content.add_row([msg.to_owned()]);
+                let msg = Msg::new().color(Color::Orange).text(&message).reset();
+                rumor_content.add_row([msg.to_string()]);
             }
         };
     }
-     */
     let rumor_content = rumor_content.get();
 
     let mut drugs_market_content = RenderBoxContent::new();

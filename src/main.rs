@@ -29,7 +29,7 @@ use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 use render::{
     render_admin_help, render_help, render_info, render_market, render_people, render_prices_from,
 };
-use resources::{DrugWarsRng, Locations};
+use resources::{DrugWarsRng, Locations, Messages};
 use utils::load_config;
 
 #[tokio::main]
@@ -51,7 +51,7 @@ async fn main() -> Result<()> {
             Arc::new(RwLock::new(SingleLocationData::default())),
         );
     }
-    loc_data.update_markets(&drugs, &items, &mut rng.0);
+    loc_data.init(&drugs, &items, &mut rng.0);
 
     let mut irc = Irc::from_config("irc_config.yaml").await?;
 
@@ -177,6 +177,7 @@ fn show_market(
     mut rng: ResMut<DrugWarsRng>,
     dealers: Res<Dealers>,
     location_data: Res<LocationData>,
+    messages: Res<Messages>
 ) -> Result<Vec<String>> {
     let dealer = dealers.get_dealer(prefix.nick)?;
 
@@ -188,6 +189,7 @@ fn show_market(
         prefix.nick,
         &dealer,
         &loc_data.read().unwrap(),
+        &messages
     ))
 }
 

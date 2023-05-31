@@ -34,6 +34,7 @@ impl Hash for Location {
     }
 }
 
+#[derive(Debug)]
 pub struct Drug {
     pub name: String,
     pub nominal_price: BigInt,
