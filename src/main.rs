@@ -26,7 +26,9 @@ use ircie::{
 use location_data::{LocationData, SingleLocationData};
 use num_bigint::ToBigInt;
 use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
-use render::{render_admin_help, render_help, render_info, render_market};
+use render::{
+    render_admin_help, render_help, render_info, render_market, render_people, render_prices_from,
+};
 use resources::{DrugWarsRng, Locations};
 use utils::load_config;
 
@@ -85,6 +87,10 @@ async fn main() -> Result<()> {
         .add_system("h", show_help)
         .await
         .add_system("m", show_market)
+        .await
+        .add_system("p", show_people)
+        .await
+        .add_system("cf", check_flight_prices)
         .await
         .add_system("ha", show_admin_help)
         .await
@@ -170,11 +176,11 @@ fn show_market(
     settings: Res<Settings>,
     mut rng: ResMut<DrugWarsRng>,
     dealers: Res<Dealers>,
-    locations: Res<LocationData>,
+    location_data: Res<LocationData>,
 ) -> Result<Vec<String>> {
     let dealer = dealers.get_dealer(prefix.nick)?;
 
-    let loc_data = locations.get(&dealer.location).unwrap();
+    let loc_data = location_data.get(&dealer.location).unwrap();
 
     Ok(render_market(
         settings.width,
@@ -183,4 +189,26 @@ fn show_market(
         &dealer,
         &loc_data.read().unwrap(),
     ))
+}
+
+fn show_people(
+    prefix: IrcPrefix,
+    settings: Res<Settings>,
+    dealers: Res<Dealers>,
+    location_data: Res<LocationData>,
+) -> Result<Vec<String>> {
+    let dealer = dealers.get_dealer(prefix.nick)?;
+    let loc_data = location_data.get(&dealer.location).unwrap();
+
+    Ok(render_people(settings.width, &loc_data.read().unwrap()))
+}
+
+fn check_flight_prices(
+    prefix: IrcPrefix,
+    dealers: Res<Dealers>,
+    locations: Res<Locations>,
+) -> Result<Vec<String>> {
+    let dealer = dealers.get_dealer(prefix.nick)?;
+
+    Ok(render_prices_from(&dealer.location, &locations))
 }

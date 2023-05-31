@@ -16,7 +16,7 @@ pub struct SingleLocationData {
     pub drug_market: HashMap<Arc<Drug>, MarketElement>,
     pub item_market: HashMap<Arc<Item>, MarketElement>,
     pub messages: Vec<String>,
-    pub blokes: HashSet<String>,
+    pub people: HashSet<String>,
     //pub price_mods: Vec<PriceMod>,
     //pub rumors: Vec<Rumor>,
 }

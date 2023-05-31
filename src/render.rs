@@ -6,7 +6,7 @@ use crate::{
     dealer::Dealer,
     location_data::SingleLocationData,
     renderer::{RenderBox, RenderBoxContent, Renderer},
-    utils::{PrettyAmount, PrettyMoney},
+    utils::{PrettyAmount, PrettyMoney, StringManips, get_flight_price}, resources::{Location, Locations},
 };
 
 pub fn render_info(dealer: &Dealer) -> Vec<String> {
@@ -529,6 +529,80 @@ pub fn render_market(
     renderer.build()
 }
 
+pub fn render_people(width: usize, location: &SingleLocationData) -> Vec<String> {
+    let mut blokes = location.people.iter().collect::<Vec<_>>();
+    let mut line = String::new();
+
+    let mut blokes_content = RenderBoxContent::new();
+
+    while blokes.len() > 0 {
+        let to_append = format!("{}, ", blokes[blokes.len() - 1]);
+
+        if line.irc_safe_len() + to_append.irc_safe_len() > width - 2 {
+            line.truncate(line.len() - 2);
+            blokes_content.add_row([line]);
+
+            line = String::new();
+        }
+
+        line += &to_append;
+        blokes.pop();
+    }
+
+    if line.irc_safe_len() > 0 {
+        line.truncate(line.len() - 2);
+        blokes_content.add_row([line]);
+    }
+    let blokes_content = blokes_content.get();
+
+    Renderer::new(width)
+        .add_box(
+            &RenderBox::new()
+                .headers(["People in town".to_owned()])
+                .add_content([&blokes_content])
+                .get(),
+        )
+        .build()
+}
+
+pub fn render_prices_from(current_location: &Location, locations: &Locations) -> Vec<String> {
+    let mut flight_prices_content = RenderBoxContent::new();
+
+    flight_prices_content
+        .header(["To".to_owned(), "Price".to_owned()])
+        .sizes([30, 15]);
+
+    for location in locations.values() {
+        if location.name == current_location.name {
+            continue;
+        }
+
+        let price = get_flight_price(current_location, location);
+
+        let to = Msg::new()
+            .color(Color::Yellow)
+            .text(&location.name)
+            .reset()
+            .to_string();
+        let p_price = Msg::new()
+            .color(Color::Green)
+            .text(price.pretty_money())
+            .reset()
+            .to_string();
+
+        flight_prices_content.add_row([to, p_price]);
+    }
+
+    Renderer::new(50)
+        .add_box(
+            &RenderBox::new()
+                .headers([format!("Flight prices from {}", &current_location.name)])
+                .add_content([&flight_prices_content.get()])
+                .get(),
+        )
+        .build()
+}
+
 /*
 impl DrugWars {
     pub fn get_date_and_time(&self) -> String {
@@ -556,181 +630,6 @@ impl DrugWars {
 
     pub fn render_time(&self) -> Vec<String> {
         vec![self.get_date_and_time()]
-    }
-
-
-    pub fn render_people(&self, dealer: &Dealer) -> Vec<String> {
-        let location = self.locations.get(&dealer.location).unwrap();
-        let mut blokes = location.blokes.iter().collect::<Vec<_>>();
-        let mut line = String::new();
-
-        let mut blokes_content = RenderBoxContent::new();
-
-        while blokes.len() > 0 {
-            let to_append = format!("{}, ", blokes[blokes.len() - 1]);
-
-            if line.irc_safe_len() + to_append.irc_safe_len() > self.settings.width - 2 {
-                line.truncate(line.len() - 2);
-                blokes_content.add_row([line]);
-
-                line = String::new();
-            }
-
-            line += &to_append;
-            blokes.pop();
-        }
-
-        if line.irc_safe_len() > 0 {
-            line.truncate(line.len() - 2);
-            blokes_content.add_row([line]);
-        }
-        let blokes_content = blokes_content.get();
-
-        Renderer::new(self.settings.width)
-            .add_box(
-                &RenderBox::new()
-                    .headers(["People in town".to_owned()])
-                    .add_content([&blokes_content])
-                    .get(),
-            )
-            .build()
-    }
-
-    pub fn render_command_list(&self) -> Vec<String> {
-        Renderer::new(90)
-            .add_box(
-                &RenderBox::new()
-                    .headers(["Command list".to_owned()])
-                    .add_content([&RenderBoxContent::new()
-                        .add_row(["register".to_owned(), "join the game".to_owned()])
-                        .add_row(["h".to_owned(), "print this list".to_owned()])
-                        .add_row(["ha".to_owned(), "print the admin command list".to_owned()])
-                        .add_row(["i".to_owned(), "print your info".to_owned()])
-                        .add_row(["m".to_owned(), "print the market".to_owned()])
-                        .add_row([
-                            "p".to_owned(),
-                            "show the people at your location".to_owned(),
-                        ])
-                        .add_row(["t".to_owned(), "print the date and time".to_owned()])
-                        .add_row([
-                            "a <target> <weapon>".to_owned(),
-                            "attack someone".to_owned(),
-                        ])
-                        .add_row(["l <target>".to_owned(), "loot a dead player".to_owned()])
-                        .add_row(["lm <money>".to_owned(), "launder your money".to_owned()])
-                        .add_row([
-                            "leaderboard".to_owned(),
-                            "show the hardest dealers".to_owned(),
-                        ])
-                        .add_row([
-                            "heal".to_owned(),
-                            "heal completely for a third of your money".to_owned(),
-                        ])
-                        .add_row([
-                            "bt <amount>".to_owned(),
-                            "buy thugs (cost 10,000 / day)".to_owned(),
-                        ])
-                        .add_row(["st <amount>".to_owned(), "sell thugs".to_owned()])
-                        .add_row([
-                            "bd <drug> <amount>".to_owned(),
-                            "buy drug from market".to_owned(),
-                        ])
-                        .add_row([
-                            "sd <drug> <amount>".to_owned(),
-                            "sell drug to market".to_owned(),
-                        ])
-                        .add_row([
-                            "bi <drug> <amount>".to_owned(),
-                            "buy item from market".to_owned(),
-                        ])
-                        .add_row([
-                            "si <drug> <amount>".to_owned(),
-                            "sell item to market".to_owned(),
-                        ])
-                        .add_row(["bc <amount>".to_owned(), "buy inventory slots".to_owned()])
-                        .add_row([
-                            "cc <amount>".to_owned(),
-                            "check price to add <amount> inventory slots".to_owned(),
-                        ])
-                        .add_row(["cf ".to_owned(), "check flight prices".to_owned()])
-                        .add_row([
-                            "f <destination>".to_owned(),
-                            "fly to destination".to_owned(),
-                        ])
-                        .add_row([
-                            "cshd <drug> <amount> <destination>".to_owned(),
-                            "check drug shipping price".to_owned(),
-                        ])
-                        .add_row([
-                            "cshi <drug> <amount> <destination>".to_owned(),
-                            "check item shipping price".to_owned(),
-                        ])
-                        .add_row([
-                            "shd <drug> <amount> <destination>".to_owned(),
-                            "ship drug to destination".to_owned(),
-                        ])
-                        .add_row([
-                            "shi <item> <amount> <destination>".to_owned(),
-                            "ship item to destination".to_owned(),
-                        ])
-                        .add_row([
-                            "gm <bloke> <amount>".to_owned(),
-                            "give money to some bloke".to_owned(),
-                        ])
-                        .add_row([
-                            "gd <bloke> <drug> <amount>".to_owned(),
-                            "give drugs to some bloke".to_owned(),
-                        ])
-                        .add_row([
-                            "gi <bloke> <item> <amount>".to_owned(),
-                            "give items to some bloke".to_owned(),
-                        ])
-                        .get()])
-                    .get(),
-            )
-            .build()
-    }
-
-    pub fn render_prices_from(&self, location_str: &str) -> Vec<String> {
-        let current_location = self.locations.get(location_str).unwrap();
-
-        let mut flight_prices_content = RenderBoxContent::new();
-
-        flight_prices_content
-            .header(["To".to_owned(), "Price".to_owned()])
-            .sizes([30, 15]);
-
-        for (location_name, location) in &self.locations {
-            if location_name.as_str() == location_str {
-                continue;
-            }
-
-            let price = get_flight_price(current_location, location);
-
-            let to = PrivMsg::new()
-                .color(IrcColor::Yellow)
-                .text(location_name)
-                .reset()
-                .get()
-                .to_owned();
-            let p_price = PrivMsg::new()
-                .color(IrcColor::Green)
-                .text(&pretty_print_money(price))
-                .reset()
-                .get()
-                .to_owned();
-
-            flight_prices_content.add_row([to, p_price]);
-        }
-
-        Renderer::new(50)
-            .add_box(
-                &RenderBox::new()
-                    .headers([format!("Flight prices from {}", location_str)])
-                    .add_content([&flight_prices_content.get()])
-                    .get(),
-            )
-            .build()
     }
 
     pub fn render_leaderboard(&self) -> Vec<String> {

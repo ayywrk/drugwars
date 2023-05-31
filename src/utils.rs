@@ -1,15 +1,30 @@
-use std::{path::Path, str};
+use std::{f32::consts::PI, path::Path, str};
 
-use num_bigint::BigInt;
+use num_bigint::{BigInt, ToBigInt};
 use tokio::{fs::File, io::AsyncReadExt};
 
-use crate::config::DrugWarsConfig;
+use crate::{config::DrugWarsConfig, resources::Location};
 
 pub async fn load_config(path: impl AsRef<Path>) -> std::io::Result<DrugWarsConfig> {
     let mut file = File::open(path).await?;
     let mut contents = String::new();
     file.read_to_string(&mut contents).await?;
     Ok(serde_yaml::from_str(&contents).unwrap())
+}
+
+pub fn get_flight_price(origin: &Location, other: &Location) -> BigInt {
+    let cur_lat = origin.position.lat * (PI / 180.);
+    let cur_long = origin.position.long * (PI / 180.);
+
+    let other_lat = other.position.lat * (PI / 180.);
+    let other_long = other.position.long * (PI / 180.);
+
+    let float_price = (cur_lat.sin() * other_lat.sin()
+        + cur_lat.cos() * other_lat.cos() * (other_long - cur_long).cos())
+    .acos()
+        * 10000.;
+
+    (float_price * 10000.).to_bigint().unwrap()
 }
 
 pub trait PrettyMoney {
