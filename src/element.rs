@@ -1,26 +1,36 @@
-use std::sync::Arc;
+use std::{hash::Hash, sync::Arc};
 
 use num_bigint::BigInt;
 
 use crate::resources::{Drug, Item, Location};
 
-pub trait Element {
+pub trait Element: Eq + Hash + 'static {
     fn name(&self) -> &str;
 }
 
-impl Element for Arc<Drug> {
+impl Element for Drug {
     fn name(&self) -> &str {
         &self.name
     }
 }
-impl Element for Arc<Item> {
+impl Element for Item {
     fn name(&self) -> &str {
         &self.name
     }
 }
-impl Element for Arc<Location> {
+impl Element for Location {
     fn name(&self) -> &str {
         &self.name
+    }
+}
+
+pub trait ArcElement: Eq + Hash + 'static {
+    fn name(&self) -> &str;
+}
+
+impl<E: Element> ArcElement for Arc<E> {
+    fn name(&self) -> &str {
+        self.as_ref().name()
     }
 }
 

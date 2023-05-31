@@ -594,32 +594,6 @@ pub fn render_prices_from(current_location: &Location, locations: &Locations) ->
 
 /*
 impl DrugWars {
-    pub fn get_date_and_time(&self) -> String {
-        let t = self.timer.elapsed().unwrap().as_secs_f32() / self.settings.day_duration as f32;
-
-        let current_seconds = t * 86400.;
-
-        let duration = Duration::seconds(current_seconds as i64);
-
-        let current_time = format!(
-            "{:0>2}:{:0>2}",
-            duration.num_hours(),
-            duration.num_minutes() - (60 * duration.num_hours())
-        );
-
-        format!("{} {}", self.get_date(), current_time)
-    }
-
-    pub fn get_date(&self) -> String {
-        let current_date = self.settings.current_day.format("%Y-%m-%d").to_string();
-        current_date
-    }
-
-
-
-    pub fn render_time(&self) -> Vec<String> {
-        vec![self.get_date_and_time()]
-    }
 
     pub fn render_leaderboard(&self) -> Vec<String> {
         let dealers = &self

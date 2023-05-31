@@ -1,4 +1,4 @@
-use std::{path::Path, str::FromStr, sync::Arc};
+use std::{path::Path, str::FromStr, sync::Arc, time::SystemTime};
 
 use chrono::NaiveDate;
 use num_bigint::ToBigInt;
@@ -19,14 +19,15 @@ pub struct DrugWarsConfig {
 pub struct Settings {
     pub day_duration: u32,
     pub current_day: NaiveDate,
+    pub timer: SystemTime,
     pub save_path: String,
     pub config_path: String,
     pub width: usize,
 }
 
-pub fn get_statics_from_config(
+pub fn get_game_data_from_config(
     drugwars_config: &DrugWarsConfig,
-) -> (Drugs, Locations, Items, Messages) {
+) -> GameData {
     let mut drugs = Drugs::default();
     let mut locations = Locations::default();
     let mut items = Items::default();
@@ -35,12 +36,10 @@ pub fn get_statics_from_config(
     for drug in &drugwars_config.drugs {
         let name = drug.as_mapping().unwrap()["name"].as_str().unwrap();
         let price = drug.as_mapping().unwrap()["price"].as_f64().unwrap() * 10000.;
-        drugs.push(
-            Arc::new(Drug {
-                name: name.to_owned(),
-                nominal_price: price.to_bigint().unwrap(),
-            }),
-        );
+        drugs.push(Arc::new(Drug {
+            name: name.to_owned(),
+            nominal_price: price.to_bigint().unwrap(),
+        }));
     }
 
     for location in &drugwars_config.locations {
@@ -56,12 +55,10 @@ pub fn get_statics_from_config(
             .as_f64()
             .unwrap() as f32;
 
-        locations.push(
-            Arc::new(Location {
-                name: name.to_owned(),
-                position: Position { lat, long },
-            }),
-        );
+        locations.push(Arc::new(Location {
+            name: name.to_owned(),
+            position: Position { lat, long },
+        }));
     }
 
     let weapons = drugwars_config.items["weapons"]
@@ -82,13 +79,11 @@ pub fn get_statics_from_config(
             ammo = Some(weapon["ammo"].as_str().unwrap().to_owned())
         }
 
-        items.push(
-            Arc::new(Item {
-                name: name.to_owned(),
-                nominal_price: price.to_bigint().unwrap(),
-                kind: ItemKind::Weapon(Weapon { ammo, damage }),
-            }),
-        );
+        items.push(Arc::new(Item {
+            name: name.to_owned(),
+            nominal_price: price.to_bigint().unwrap(),
+            kind: ItemKind::Weapon(Weapon { ammo, damage }),
+        }));
     }
 
     let ammos = drugwars_config.items["ammos"]
@@ -102,13 +97,11 @@ pub fn get_statics_from_config(
         let name = ammo["name"].as_str().unwrap();
         let price = ammo["price"].as_f64().unwrap() * 10000.;
 
-        items.push(
-            Arc::new(Item {
-                name: name.to_owned(),
-                nominal_price: price.to_bigint().unwrap(),
-                kind: ItemKind::Ammo,
-            }),
-        );
+        items.push(Arc::new(Item {
+            name: name.to_owned(),
+            nominal_price: price.to_bigint().unwrap(),
+            kind: ItemKind::Ammo,
+        }));
     }
 
     let armors = drugwars_config.items["armors"]
@@ -123,13 +116,11 @@ pub fn get_statics_from_config(
         let price = armor["price"].as_f64().unwrap() * 10000.;
         let block = armor["block"].as_f64().unwrap() as f32;
 
-        items.push(
-            Arc::new(Item {
-                name: name.to_owned(),
-                nominal_price: price.to_bigint().unwrap(),
-                kind: ItemKind::Armor(Armor { block }),
-            }),
-        );
+        items.push(Arc::new(Item {
+            name: name.to_owned(),
+            nominal_price: price.to_bigint().unwrap(),
+            kind: ItemKind::Armor(Armor { block }),
+        }));
     }
 
     for (message_key, message_val) in &drugwars_config.messages {
@@ -143,7 +134,12 @@ pub fn get_statics_from_config(
         messages.insert(key.to_owned(), val);
     }
 
-    (drugs, locations, items, messages)
+    GameData {
+        drugs,
+        items,
+        locations,
+        messages
+    }
 }
 
 pub fn get_settings_from_config(
@@ -158,6 +154,7 @@ pub fn get_settings_from_config(
     Settings {
         day_duration,
         current_day: NaiveDate::from_str(current_day_str).unwrap(),
+        timer: SystemTime::now(),
         save_path: save_path.to_owned(),
         config_path: config_path.as_ref().to_str().unwrap().to_string(),
         width: width as usize,

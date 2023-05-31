@@ -1,9 +1,10 @@
 use std::{f32::consts::PI, path::Path, str};
 
+use chrono::Duration;
 use num_bigint::{BigInt, ToBigInt};
 use tokio::{fs::File, io::AsyncReadExt};
 
-use crate::{config::DrugWarsConfig, resources::Location};
+use crate::{config::{DrugWarsConfig, Settings}, resources::Location};
 
 pub async fn load_config(path: impl AsRef<Path>) -> std::io::Result<DrugWarsConfig> {
     let mut file = File::open(path).await?;
@@ -106,4 +107,24 @@ impl<T: std::fmt::Display> StringManips for T {
             .filter(|c| !['\x02', '\x1d', '\x1f', '\x1e', '\x12', '\x0f'].contains(c))
             .count()
     }
+}
+
+pub fn get_date_and_time(settings: &Settings) -> String {
+    let t = settings.timer.elapsed().unwrap().as_secs_f32() / settings.day_duration as f32;
+
+    let current_seconds = t * 86400.;
+
+    let duration = Duration::seconds(current_seconds as i64);
+
+    let current_time = format!(
+        "{:0>2}:{:0>2}",
+        duration.num_hours(),
+        duration.num_minutes() - (60 * duration.num_hours())
+    );
+
+    format!(
+        "{} {}",
+        settings.current_day.format("%Y-%m-%d").to_string(),
+        current_time
+    )
 }

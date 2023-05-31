@@ -11,11 +11,13 @@ pub mod utils;
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
+    time::SystemTime,
 };
 
 use chrono::Duration;
-use config::{get_settings_from_config, get_statics_from_config, Settings};
+use config::{get_game_data_from_config, get_settings_from_config, Settings};
 use dealer::{Dealer, DealerStatus, Dealers};
+use element::Element;
 use error::{Error, Result};
 use ircie::{
     format::{Color, Msg},
@@ -29,29 +31,28 @@ use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 use render::{
     render_admin_help, render_help, render_info, render_market, render_people, render_prices_from,
 };
-use resources::{DrugWarsRng, Drugs, Flights, Items, Locations, Matching, Messages};
-use utils::load_config;
+use resources::{Drug, DrugWarsRng, Flights, GameData, Matching, Messages};
+use utils::{get_date_and_time, load_config};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::init();
 
     let drugwars_config = load_config("drugwars_config.yaml").await?;
-    let (drugs, locations, items, messages) = get_statics_from_config(&drugwars_config);
+    let game_data = get_game_data_from_config(&drugwars_config);
 
     let settings = get_settings_from_config(&drugwars_config, "drugwars_config.yaml");
-    let dur = settings.day_duration as u64;
 
     let mut rng = DrugWarsRng(StdRng::from_entropy());
 
     let mut loc_data = LocationData::default();
-    for loc in locations.iter() {
+    for loc in game_data.locations.iter() {
         loc_data.0.insert(
             loc.clone(),
             Arc::new(RwLock::new(SingleLocationData::default())),
         );
     }
-    loc_data.update(&drugs, &items, &locations, &mut rng.0);
+    loc_data.update(&game_data, &mut rng.0);
 
     let mut irc = Irc::from_config("irc_config.yaml").await?;
 
@@ -62,13 +63,7 @@ async fn main() -> Result<()> {
         .await;
 
     // -- resources
-    irc.add_resource(drugs)
-        .await
-        .add_resource(items)
-        .await
-        .add_resource(locations)
-        .await
-        .add_resource(messages)
+    irc.add_resource(game_data)
         .await
         .add_resource(settings)
         .await
@@ -82,7 +77,7 @@ async fn main() -> Result<()> {
         .await;
 
     // -- intervals
-    irc.add_interval_task(std::time::Duration::from_secs(dur), new_day)
+    irc.add_interval_task(std::time::Duration::from_millis(50), new_day)
         .await;
 
     // -- systems
@@ -102,7 +97,11 @@ async fn main() -> Result<()> {
         .await
         .add_system("f", fly_to)
         .await
+        .add_system("t", show_time)
+        .await
         .add_system("ha", show_admin_help)
+        .await
+        .add_system("bd", buy::<Drug>)
         .await;
 
     irc.run().await?;
@@ -113,16 +112,19 @@ async fn main() -> Result<()> {
 fn new_day(
     mut settings: ResMut<Settings>,
     mut loc_data: ResMut<LocationData>,
-    drugs: Res<Drugs>,
-    items: Res<Items>,
-    locations: Res<Locations>,
+    game_data: Res<GameData>,
     mut flights: ResMut<Flights>,
     dealers: Res<Dealers>,
     mut rng: ResMut<DrugWarsRng>,
-) -> impl IntoResponse {
-    settings.current_day += Duration::days(1);
+) -> std::result::Result<impl IntoResponse, ()> {
+    if settings.timer.elapsed().unwrap().as_secs() < settings.day_duration as u64 {
+        return Err(());
+    }
 
-    loc_data.update(&drugs, &items, &locations, &mut rng.0);
+    settings.current_day += Duration::days(1);
+    settings.timer = SystemTime::now();
+
+    loc_data.update(&game_data, &mut rng.0);
 
     let mut lines = vec![Msg::new()
         .text("new day: ")
@@ -149,7 +151,7 @@ fn new_day(
 
     flights.clear();
 
-    (false, lines)
+    Ok((false, lines))
 }
 
 fn default_sys() -> impl IntoResponse {
@@ -159,7 +161,7 @@ fn default_sys() -> impl IntoResponse {
 fn register(
     prefix: IrcPrefix,
     mut dealers: ResMut<Dealers>,
-    locations: Res<Locations>,
+    game_data: Res<GameData>,
     mut rng: ResMut<DrugWarsRng>,
 ) -> impl IntoResponse {
     if dealers.0.contains_key(prefix.nick) {
@@ -169,9 +171,14 @@ fn register(
     let mut owned_drugs = HashMap::default();
     let mut owned_items = HashMap::default();
 
-    let location = locations.iter().choose(&mut rng.0).unwrap().clone();
+    let location = game_data
+        .locations
+        .iter()
+        .choose(&mut rng.0)
+        .unwrap()
+        .clone();
 
-    for loc in locations.iter() {
+    for loc in game_data.locations.iter() {
         owned_drugs.insert(loc.clone(), HashMap::default());
         owned_items.insert(loc.clone(), HashMap::default());
     }
@@ -254,23 +261,26 @@ fn show_people(
 fn check_flight_prices(
     prefix: IrcPrefix,
     dealers: Res<Dealers>,
-    locations: Res<Locations>,
+    game_data: Res<GameData>,
 ) -> Result<impl IntoResponse> {
     let dealer = dealers.get_dealer(prefix.nick)?;
 
-    Ok((false, render_prices_from(&dealer.location, &locations)))
+    Ok((
+        false,
+        render_prices_from(&dealer.location, &game_data.locations),
+    ))
 }
 
 fn fly_to(
     prefix: IrcPrefix,
     arguments: Arguments<'_, 1>,
     dealers: Res<Dealers>,
-    locations: Res<Locations>,
+    game_data: Res<GameData>,
     mut flights: ResMut<Flights>,
     location_data: Res<LocationData>,
 ) -> Result<impl IntoResponse> {
     let mut dealer = dealers.get_dealer_available_mut(prefix.nick)?;
-    let destination = locations.get_matching(arguments[0])?;
+    let destination = game_data.locations.get_matching(arguments[0])?;
 
     let current_location_data = location_data.get(&dealer.location).unwrap();
 
@@ -279,4 +289,27 @@ fn fly_to(
         destination,
         &mut current_location_data.write().unwrap(),
     )
+}
+
+fn show_time(settings: Res<Settings>) -> impl IntoResponse {
+    get_date_and_time(&settings)
+}
+
+fn buy<E: Element + 'static>(
+    prefix: IrcPrefix,
+    arguments: Arguments<'_, 2>,
+    dealers: Res<Dealers>,
+    game_data: Res<GameData>,
+    location_data: Res<LocationData>
+) -> Result<impl IntoResponse> {
+    let dealer = dealers.get_dealer_available(prefix.nick)?;
+
+    let elem = game_data.get_matching::<E>(arguments[0])?;
+    let loc_data = location_data.get(&dealer.location).unwrap();
+
+    let market_elem = loc_data.read().unwrap().get_market_element::<E>(elem)?;
+
+    let amount = arguments[1].parse::<usize>()?;
+
+    Ok(format!("Buying {} {}", amount, drug.name()))
 }

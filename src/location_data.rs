@@ -1,5 +1,8 @@
 use std::{
+    any::TypeId,
+    borrow::Borrow,
     collections::{HashMap, HashSet},
+    hash::Hash,
     ops::{Deref, DerefMut},
     sync::{Arc, RwLock},
 };
@@ -7,8 +10,9 @@ use std::{
 use rand::{seq::IteratorRandom, Rng, RngCore};
 
 use crate::{
-    element::MarketElement,
-    resources::{Drug, Drugs, Item, Items, Location, Locations},
+    element::{ArcElement, Element, MarketElement},
+    error::{Error, Result},
+    resources::{Drug, Drugs, GameData, Item, Items, Location, Locations},
 };
 
 #[derive(Debug, Clone)]
@@ -48,6 +52,18 @@ pub struct SingleLocationData {
 }
 
 impl SingleLocationData {
+    pub fn get_market_element<E: ArcElement>(&self, elem: E) -> Result<&MarketElement> {
+        if TypeId::of::<E>() == TypeId::of::<Arc<Drug>>() {
+            self.drug_market
+                .get(&elem)
+                .ok_or(Error::ElementNotFound(elem.name().to_owned()))
+        } else {
+            self.item_market
+                .get(&elem)
+                .ok_or(Error::ElementNotFound(elem.name().to_owned()))
+        }
+    }
+
     pub fn update_markets(&mut self, drugs: &Drugs, items: &Items, rng: &mut dyn RngCore) {
         self.drug_market.clear();
         self.item_market.clear();
@@ -200,20 +216,14 @@ impl DerefMut for LocationData {
 }
 
 impl LocationData {
-    pub fn update(
-        &mut self,
-        drugs: &Drugs,
-        items: &Items,
-        locations: &Locations,
-        rng: &mut dyn RngCore,
-    ) {
+    pub fn update(&mut self, game_data: &GameData, rng: &mut dyn RngCore) {
         for data_arc in self.values_mut() {
             let mut data = data_arc.write().unwrap();
 
-            data.update_price_mods(drugs, rng);
+            data.update_price_mods(&game_data.drugs, rng);
             data.confirm_rumors(rng);
-            data.update_markets(drugs, items, rng);
-            data.generate_rumors(drugs, locations, rng)
+            data.update_markets(&game_data.drugs, &game_data.items, rng);
+            data.generate_rumors(&game_data.drugs, &game_data.locations, rng)
         }
     }
 }

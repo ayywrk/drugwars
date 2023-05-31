@@ -1,4 +1,5 @@
 use std::{
+    any::TypeId,
     collections::HashMap,
     hash::Hash,
     ops::{Deref, DerefMut},
@@ -10,7 +11,7 @@ use num_bigint::BigInt;
 use rand::rngs::StdRng;
 
 use crate::{
-    element::Element,
+    element::{ArcElement, Element},
     error::{Error, Result},
 };
 
@@ -106,7 +107,7 @@ pub struct Weapon {
 }
 
 pub trait Matching {
-    type Elem: Element;
+    type Elem: ArcElement;
 
     fn get_matching(&self, val: &str) -> Result<&Self::Elem>
     where
@@ -206,6 +207,27 @@ impl Deref for Messages {
 impl DerefMut for Messages {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+pub struct GameData {
+    pub drugs: Drugs,
+    pub items: Items,
+    pub locations: Locations,
+    pub messages: Messages,
+}
+
+impl GameData {
+    pub fn get_matching<E: Element + 'static>(&self, val: &str) -> Result<Arc<E>> {
+        if TypeId::of::<E>() == TypeId::of::<Drug>() {
+            Ok(self.drugs.get_matching(val)?)
+        } else if TypeId::of::<E>() == TypeId::of::<Item>() {
+            Ok(self.items.get_matching(val)?)
+        } else if TypeId::of::<E>() == TypeId::of::<Location>() {
+            Ok(self.locations.get_matching(val)?)
+        } else {
+            Err(Error::InvalidElement(val.to_string()))
+        }
     }
 }
 

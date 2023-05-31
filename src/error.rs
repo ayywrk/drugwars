@@ -8,6 +8,10 @@ pub type Error = DrugWarsError;
 pub enum DrugWarsError {
     #[error("Io error")]
     Io(#[from] std::io::Error),
+    #[error("Parse int error")]
+    ParseIntError(#[from] std::num::ParseIntError),
+    #[error("Parse float error")]
+    ParseFloatError(#[from] std::num::ParseFloatError),
     #[error("You are already playing you donut")]
     AlreadyRegistered,
     #[error("Dealer {0} not found.")]
@@ -20,6 +24,8 @@ pub enum DrugWarsError {
     ElementAmbiguous(String),
     #[error("you don't have enough money you broke ass punk")]
     NotEnoughMoney,
+    #[error("Invalid element {0}")]
+    InvalidElement(String),
 }
 
 impl IntoResponse for DrugWarsError {
