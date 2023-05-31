@@ -1,11 +1,28 @@
+use std::sync::Arc;
+
 use num_bigint::BigInt;
 
-use crate::resources::{Drug, Item};
+use crate::resources::{Drug, Item, Location};
 
-pub trait Element {}
+pub trait Element {
+    fn name(&self) -> &str;
+}
 
-impl Element for Drug {}
-impl Element for Item {}
+impl Element for Arc<Drug> {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+impl Element for Arc<Item> {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+impl Element for Arc<Location> {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
 
 pub struct OwnedElement {
     pub amount: usize,

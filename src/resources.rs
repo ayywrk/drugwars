@@ -5,8 +5,14 @@ use std::{
     sync::Arc,
 };
 
+use itertools::Itertools;
 use num_bigint::BigInt;
 use rand::rngs::StdRng;
+
+use crate::{
+    element::Element,
+    error::{Error, Result},
+};
 
 #[derive(Debug)]
 pub struct Position {
@@ -99,10 +105,39 @@ pub struct Weapon {
     pub damage: f32,
 }
 
+pub trait Matching {
+    type Elem: Element;
+
+    fn get_matching(&self, val: &str) -> Result<&Self::Elem>
+    where
+        Self: Deref<Target = Vec<Self::Elem>>,
+    {
+        let val = val.to_lowercase();
+        let matching = self
+            .iter()
+            .filter(|elem| {
+                elem.name()
+                    .to_lowercase()
+                    .replace(" ", "")
+                    .starts_with(&val)
+            })
+            .sorted_by_key(|elem| elem.name().len())
+            .collect::<Vec<_>>();
+
+        if matching.len() == 0 {
+            return Err(Error::ElementNotFound(val));
+        } else if matching.len() > 1 {
+            return Err(Error::ElementAmbiguous(val));
+        }
+
+        Ok(matching[0])
+    }
+}
+
 #[derive(Default)]
-pub struct Drugs(HashMap<String, Arc<Drug>>);
+pub struct Drugs(Vec<Arc<Drug>>);
 impl Deref for Drugs {
-    type Target = HashMap<String, Arc<Drug>>;
+    type Target = Vec<Arc<Drug>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -114,10 +149,15 @@ impl DerefMut for Drugs {
         &mut self.0
     }
 }
+
+impl Matching for Drugs {
+    type Elem = Arc<Drug>;
+}
+
 #[derive(Default)]
-pub struct Items(HashMap<String, Arc<Item>>);
+pub struct Items(Vec<Arc<Item>>);
 impl Deref for Items {
-    type Target = HashMap<String, Arc<Item>>;
+    type Target = Vec<Arc<Item>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -129,10 +169,14 @@ impl DerefMut for Items {
         &mut self.0
     }
 }
+
+impl Matching for Items {
+    type Elem = Arc<Item>;
+}
 #[derive(Default)]
-pub struct Locations(HashMap<String, Arc<Location>>);
+pub struct Locations(Vec<Arc<Location>>);
 impl Deref for Locations {
-    type Target = HashMap<String, Arc<Location>>;
+    type Target = Vec<Arc<Location>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -144,6 +188,11 @@ impl DerefMut for Locations {
         &mut self.0
     }
 }
+
+impl Matching for Locations {
+    type Elem = Arc<Location>;
+}
+
 #[derive(Default)]
 pub struct Messages(HashMap<String, Vec<String>>);
 impl Deref for Messages {
@@ -161,7 +210,6 @@ impl DerefMut for Messages {
 }
 
 pub struct DrugWarsRng(pub StdRng);
-
 
 #[derive(Default)]
 pub struct Flights(pub HashMap<String, Arc<Location>>);

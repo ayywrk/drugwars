@@ -1,16 +1,19 @@
 use std::{
     collections::HashMap,
     ops::Deref,
-    sync::{Arc, RwLock, RwLockReadGuard},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use chrono::NaiveDate;
+use ircie::format::{Color, Msg};
 use num_bigint::BigInt;
 
 use crate::{
     element::OwnedElement,
     error::{Error, Result},
-    resources::{Drug, Item, Location},
+    location_data::SingleLocationData,
+    resources::{Drug, Flights, Item, Location},
+    utils::{get_flight_price, PrettyMoney},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,6 +71,26 @@ impl Dealers {
 
         Ok(dealer)
     }
+
+    pub fn get_dealer_mut(&self, nick: &str) -> Result<RwLockWriteGuard<Dealer>> {
+        match self.get(nick) {
+            Some(dealer) => Ok(dealer.write().unwrap()),
+            None => Err(Error::DealerNotFound(nick.to_owned())),
+        }
+    }
+
+    pub fn get_dealer_available_mut(&self, nick: &str) -> Result<RwLockWriteGuard<Dealer>> {
+        let dealer = self.get_dealer_mut(nick)?;
+
+        if !dealer.available() {
+            return Err(Error::DealerNotAvailable(
+                nick.to_owned(),
+                dealer.status.description(),
+            ));
+        }
+
+        Ok(dealer)
+    }
 }
 
 pub struct Dealer {
@@ -87,5 +110,36 @@ pub struct Dealer {
 impl Dealer {
     pub fn available(&self) -> bool {
         self.status == DealerStatus::Available
+    }
+
+    pub fn fly_to(
+        &mut self,
+        flights: &mut Flights,
+        destination: &Arc<Location>,
+        current_location_data: &mut SingleLocationData,
+    ) -> Result<Vec<String>> {
+        let price = get_flight_price(&self.location, &destination);
+
+        if self.money < price {
+            return Err(Error::NotEnoughMoney);
+        }
+
+        self.status = DealerStatus::Flying;
+        current_location_data.people.remove(&self.nick);
+        self.money -= price.clone();
+
+        flights.insert(self.nick.clone(), destination.clone());
+
+        Ok(vec![Msg::new()
+            .text("you took a flight to ")
+            .color(Color::Purple)
+            .text(&destination.name)
+            .reset()
+            .text(" for ")
+            .color(Color::Green)
+            .text(price.pretty_money())
+            .reset()
+            .text(". You'll arrive tomorrow")
+            .to_string()])
     }
 }

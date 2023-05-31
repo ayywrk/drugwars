@@ -35,8 +35,7 @@ pub fn get_statics_from_config(
     for drug in &drugwars_config.drugs {
         let name = drug.as_mapping().unwrap()["name"].as_str().unwrap();
         let price = drug.as_mapping().unwrap()["price"].as_f64().unwrap() * 10000.;
-        drugs.insert(
-            name.to_owned(),
+        drugs.push(
             Arc::new(Drug {
                 name: name.to_owned(),
                 nominal_price: price.to_bigint().unwrap(),
@@ -57,8 +56,7 @@ pub fn get_statics_from_config(
             .as_f64()
             .unwrap() as f32;
 
-        locations.insert(
-            name.to_owned(),
+        locations.push(
             Arc::new(Location {
                 name: name.to_owned(),
                 position: Position { lat, long },
@@ -84,8 +82,7 @@ pub fn get_statics_from_config(
             ammo = Some(weapon["ammo"].as_str().unwrap().to_owned())
         }
 
-        items.insert(
-            name.to_owned(),
+        items.push(
             Arc::new(Item {
                 name: name.to_owned(),
                 nominal_price: price.to_bigint().unwrap(),
@@ -105,8 +102,7 @@ pub fn get_statics_from_config(
         let name = ammo["name"].as_str().unwrap();
         let price = ammo["price"].as_f64().unwrap() * 10000.;
 
-        items.insert(
-            name.to_owned(),
+        items.push(
             Arc::new(Item {
                 name: name.to_owned(),
                 nominal_price: price.to_bigint().unwrap(),
@@ -127,8 +123,7 @@ pub fn get_statics_from_config(
         let price = armor["price"].as_f64().unwrap() * 10000.;
         let block = armor["block"].as_f64().unwrap() as f32;
 
-        items.insert(
-            name.to_owned(),
+        items.push(
             Arc::new(Item {
                 name: name.to_owned(),
                 nominal_price: price.to_bigint().unwrap(),

@@ -157,7 +157,7 @@ pub fn render_market(
     let items_owned = dealer.owned_items.get(&dealer.location).unwrap();
 
     let mut rumor_content = RenderBoxContent::<1>::new();
-    
+
     for rumor in &location.rumors {
         if rumor.confirmed.is_none() {
             let mut msg = Msg::new()
@@ -180,7 +180,6 @@ pub fn render_market(
             rumor_content.add_row([msg.to_string()]);
         }
     }
-    
 
     for price_mod in &location.price_mods {
         match price_mod.trend {
@@ -562,7 +561,7 @@ pub fn render_prices_from(current_location: &Location, locations: &Locations) ->
         .header(["To".to_owned(), "Price".to_owned()])
         .sizes([30, 15]);
 
-    for location in locations.values() {
+    for location in locations.iter() {
         if location.name == current_location.name {
             continue;
         }

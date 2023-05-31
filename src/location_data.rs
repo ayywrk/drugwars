@@ -52,7 +52,7 @@ impl SingleLocationData {
         self.drug_market.clear();
         self.item_market.clear();
 
-        for drug in drugs.values() {
+        for drug in drugs.iter() {
             let mods = self
                 .price_mods
                 .clone()
@@ -86,7 +86,7 @@ impl SingleLocationData {
             );
         }
 
-        for item in items.values() {
+        for item in items.iter() {
             if rng.gen_bool(4. / 5.) {
                 continue;
             };
@@ -110,7 +110,7 @@ impl SingleLocationData {
     pub fn update_price_mods(&mut self, drugs: &Drugs, rng: &mut dyn RngCore) {
         self.price_mods.clear();
 
-        for drug in drugs.values() {
+        for drug in drugs.iter() {
             if rng.gen_bool(0.92) {
                 continue;
             }
@@ -140,7 +140,7 @@ impl SingleLocationData {
     ) {
         self.rumors.clear();
 
-        for drug in drugs.values() {
+        for drug in drugs.iter() {
             if rng.gen_bool(0.95) {
                 continue;
             }
@@ -150,14 +150,14 @@ impl SingleLocationData {
                 true => self.rumors.push(Rumor {
                     drug: drug.clone(),
                     trend: PriceTrend::Down,
-                    location: locations.values().choose(&mut rng).unwrap().clone(),
+                    location: locations.iter().choose(&mut rng).unwrap().clone(),
                     confirmed: None,
                 }),
                 // Price UP !
                 false => self.rumors.push(Rumor {
                     drug: drug.clone(),
                     trend: PriceTrend::Up,
-                    location: locations.values().choose(&mut rng).unwrap().clone(),
+                    location: locations.iter().choose(&mut rng).unwrap().clone(),
                     confirmed: None,
                 }),
             }
