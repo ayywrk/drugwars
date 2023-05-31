@@ -12,6 +12,8 @@ pub enum DrugWarsError {
     AlreadyRegistered(String),
     #[error("Dealer {0} not found.")]
     DealerNotFound(String),
+    #[error("Dealer {0} not available -> {1}")]
+    DealerNotAvailable(String, String),
 }
 
 impl IntoResponse for DrugWarsError {

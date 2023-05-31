@@ -29,7 +29,7 @@ use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 use render::{
     render_admin_help, render_help, render_info, render_market, render_people, render_prices_from,
 };
-use resources::{DrugWarsRng, Drugs, Items, Locations, Messages};
+use resources::{DrugWarsRng, Drugs, Flights, Items, Locations, Messages};
 use utils::load_config;
 
 #[tokio::main]
@@ -71,6 +71,8 @@ async fn main() -> Result<()> {
         .add_resource(rng)
         .await
         .add_resource(loc_data)
+        .await
+        .add_resource(Flights::default())
         .await;
 
     // -- intervals
@@ -91,6 +93,8 @@ async fn main() -> Result<()> {
         .add_system("p", show_people)
         .await
         .add_system("cf", check_flight_prices)
+        .await
+        .add_system("f", fly_to)
         .await
         .add_system("ha", show_admin_help)
         .await
@@ -222,4 +226,10 @@ fn check_flight_prices(
     let dealer = dealers.get_dealer(prefix.nick)?;
 
     Ok(render_prices_from(&dealer.location, &locations))
+}
+
+fn fly_to(prefix: IrcPrefix, arguments: Arguments, dealers: Res<Dealers>) -> Result<Vec<String>> {
+    let dealer = dealers.get_dealer_available(prefix.nick)?;
+
+    Ok(vec![])
 }

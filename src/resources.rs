@@ -161,3 +161,20 @@ impl DerefMut for Messages {
 }
 
 pub struct DrugWarsRng(pub StdRng);
+
+
+#[derive(Default)]
+pub struct Flights(pub HashMap<String, Arc<Location>>);
+impl Deref for Flights {
+    type Target = HashMap<String, Arc<Location>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Flights {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
