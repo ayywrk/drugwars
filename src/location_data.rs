@@ -4,11 +4,11 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use rand::{Rng, RngCore};
+use rand::{seq::IteratorRandom, Rng, RngCore};
 
 use crate::{
     element::MarketElement,
-    resources::{Drug, Drugs, Item, Items, Location},
+    resources::{Drug, Drugs, Item, Items, Location, Locations},
 };
 
 #[derive(Debug, Clone)]
@@ -34,7 +34,7 @@ pub struct PriceMod {
 pub struct Rumor {
     pub drug: Arc<Drug>,
     pub trend: PriceTrend,
-    pub location: String,
+    pub location: Arc<Location>,
     pub confirmed: Option<bool>,
 }
 #[derive(Default)]
@@ -44,7 +44,7 @@ pub struct SingleLocationData {
     pub messages: Vec<String>,
     pub people: HashSet<String>,
     pub price_mods: Vec<PriceMod>,
-    //pub rumors: Vec<Rumor>,
+    pub rumors: Vec<Rumor>,
 }
 
 impl SingleLocationData {
@@ -54,11 +54,11 @@ impl SingleLocationData {
 
         for drug in drugs.values() {
             let mods = self
-                    .price_mods
-                    .clone()
-                    .into_iter()
-                    .filter(|price_mod| price_mod.drug.as_ref() == drug.as_ref())
-                    .collect::<Vec<_>>();
+                .price_mods
+                .clone()
+                .into_iter()
+                .filter(|price_mod| price_mod.drug.as_ref() == drug.as_ref())
+                .collect::<Vec<_>>();
 
             if rng.gen_bool(4. / 5.) && mods.len() == 0 {
                 continue;
@@ -131,6 +131,57 @@ impl SingleLocationData {
             }
         }
     }
+
+    pub fn generate_rumors(
+        &mut self,
+        drugs: &Drugs,
+        locations: &Locations,
+        mut rng: &mut dyn RngCore,
+    ) {
+        self.rumors.clear();
+
+        for drug in drugs.values() {
+            if rng.gen_bool(0.95) {
+                continue;
+            }
+
+            match rng.gen_bool(1. / 2.) {
+                // Price down
+                true => self.rumors.push(Rumor {
+                    drug: drug.clone(),
+                    trend: PriceTrend::Down,
+                    location: locations.values().choose(&mut rng).unwrap().clone(),
+                    confirmed: None,
+                }),
+                // Price UP !
+                false => self.rumors.push(Rumor {
+                    drug: drug.clone(),
+                    trend: PriceTrend::Up,
+                    location: locations.values().choose(&mut rng).unwrap().clone(),
+                    confirmed: None,
+                }),
+            }
+        }
+    }
+
+    pub fn confirm_rumors(&mut self, rng: &mut dyn RngCore) {
+        self.rumors.retain(|rumor| rumor.confirmed.is_none());
+
+        for rumor in &mut self.rumors {
+            if rng.gen_bool(1. / 2.) {
+                rumor.confirmed = Some(false);
+                continue;
+            }
+
+            rumor.confirmed = Some(true);
+
+            self.price_mods.push(PriceMod {
+                drug: rumor.drug.clone(),
+                trend: rumor.trend.clone(),
+                kind: PriceModKind::Rumor,
+            });
+        }
+    }
 }
 
 #[derive(Default)]
@@ -149,12 +200,20 @@ impl DerefMut for LocationData {
 }
 
 impl LocationData {
-    pub fn init(&mut self, drugs: &Drugs, items: &Items, rng: &mut dyn RngCore) {
+    pub fn update(
+        &mut self,
+        drugs: &Drugs,
+        items: &Items,
+        locations: &Locations,
+        rng: &mut dyn RngCore,
+    ) {
         for data_arc in self.values_mut() {
             let mut data = data_arc.write().unwrap();
 
             data.update_price_mods(drugs, rng);
+            data.confirm_rumors(rng);
             data.update_markets(drugs, items, rng);
+            data.generate_rumors(drugs, locations, rng)
         }
     }
 }

@@ -8,11 +8,13 @@ use std::{
 use num_bigint::BigInt;
 use rand::rngs::StdRng;
 
+#[derive(Debug)]
 pub struct Position {
     pub lat: f32,
     pub long: f32,
 }
 
+#[derive(Debug)]
 pub struct Location {
     pub name: String,
     pub position: Position,
@@ -56,6 +58,7 @@ impl Hash for Drug {
     }
 }
 
+#[derive(Debug)]
 pub struct Item {
     pub name: String,
     pub nominal_price: BigInt,
@@ -78,16 +81,19 @@ impl Hash for Item {
     }
 }
 
+#[derive(Debug)]
 pub enum ItemKind {
     Weapon(Weapon),
     Ammo,
     Armor(Armor),
 }
 
+#[derive(Debug)]
 pub struct Armor {
     pub block: f32,
 }
 
+#[derive(Debug)]
 pub struct Weapon {
     pub ammo: Option<String>,
     pub damage: f32,

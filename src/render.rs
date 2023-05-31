@@ -157,32 +157,30 @@ pub fn render_market(
     let items_owned = dealer.owned_items.get(&dealer.location).unwrap();
 
     let mut rumor_content = RenderBoxContent::<1>::new();
-    /*
+    
     for rumor in &location.rumors {
         if rumor.confirmed.is_none() {
-            let mut msg = PrivMsg::new();
-            let msg = msg
-                .color(IrcColor::Cyan)
+            let mut msg = Msg::new()
+                .color(Color::Cyan)
                 .text("You hear a rumor that ")
-                .color(IrcColor::Yellow)
-                .text(&rumor.drug)
-                .color(IrcColor::Cyan);
-            let msg = match rumor.trend {
+                .color(Color::Yellow)
+                .text(&rumor.drug.name)
+                .color(Color::Cyan);
+            msg = match rumor.trend {
                 PriceTrend::Up => msg.text(" will be abundant in "),
                 PriceTrend::Down => msg.text(" will be scarce in "),
             };
 
-            let msg = msg
-                .color(IrcColor::Purple)
-                .text(&rumor.location)
-                .color(IrcColor::Cyan)
-                .text(" tomorrow.")
-                .get();
+            msg = msg
+                .color(Color::Purple)
+                .text(&rumor.location.name)
+                .color(Color::Cyan)
+                .text(" tomorrow.");
 
-            rumor_content.add_row([msg.to_owned()]);
+            rumor_content.add_row([msg.to_string()]);
         }
     }
-    */
+    
 
     for price_mod in &location.price_mods {
         match price_mod.trend {

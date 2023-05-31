@@ -29,7 +29,7 @@ use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 use render::{
     render_admin_help, render_help, render_info, render_market, render_people, render_prices_from,
 };
-use resources::{DrugWarsRng, Locations, Messages};
+use resources::{DrugWarsRng, Drugs, Items, Locations, Messages};
 use utils::load_config;
 
 #[tokio::main]
@@ -51,7 +51,7 @@ async fn main() -> Result<()> {
             Arc::new(RwLock::new(SingleLocationData::default())),
         );
     }
-    loc_data.init(&drugs, &items, &mut rng.0);
+    loc_data.update(&drugs, &items, &locations, &mut rng.0);
 
     let mut irc = Irc::from_config("irc_config.yaml").await?;
 
@@ -102,8 +102,17 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn new_day(mut settings: ResMut<Settings>) -> impl IntoResponse {
+fn new_day(
+    mut settings: ResMut<Settings>,
+    mut loc_data: ResMut<LocationData>,
+    drugs: Res<Drugs>,
+    items: Res<Items>,
+    locations: Res<Locations>,
+    mut rng: ResMut<DrugWarsRng>,
+) -> impl IntoResponse {
     settings.current_day += Duration::days(1);
+
+    loc_data.update(&drugs, &items, &locations, &mut rng.0);
 
     Msg::new()
         .text("new day: ")
@@ -177,7 +186,7 @@ fn show_market(
     mut rng: ResMut<DrugWarsRng>,
     dealers: Res<Dealers>,
     location_data: Res<LocationData>,
-    messages: Res<Messages>
+    messages: Res<Messages>,
 ) -> Result<Vec<String>> {
     let dealer = dealers.get_dealer(prefix.nick)?;
 
@@ -189,7 +198,7 @@ fn show_market(
         prefix.nick,
         &dealer,
         &loc_data.read().unwrap(),
-        &messages
+        &messages,
     ))
 }
 
