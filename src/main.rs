@@ -103,8 +103,6 @@ async fn main() -> Result<()> {
         .add_system("f", fly_to)
         .await
         .add_system("ha", show_admin_help)
-        .await
-        .add_system("test", test_args)
         .await;
 
     irc.run().await?;
@@ -151,15 +149,11 @@ fn new_day(
 
     flights.clear();
 
-    lines
+    (false, lines)
 }
 
-fn test_args(arguments: Arguments<'_, 2>) -> impl IntoResponse {
-    format!("yo {} ya {}", arguments[0], arguments[1])
-}
-
-fn default_sys(prefix: IrcPrefix) -> impl IntoResponse {
-    format!("{}: melp?", prefix.nick)
+fn default_sys() -> impl IntoResponse {
+    "melp?"
 }
 
 fn register(
@@ -198,24 +192,24 @@ fn register(
         })),
     );
 
-    Ok(Msg::new().text(prefix.nick).text(": Get Rich or Die Tryin"))
+    Ok(Msg::new().text(prefix.nick).text("Get Rich or Die Tryin"))
 }
 
-fn dealer_info(prefix: IrcPrefix, dealers: Res<Dealers>) -> Result<Vec<String>> {
+fn dealer_info(prefix: IrcPrefix, dealers: Res<Dealers>) -> Result<impl IntoResponse> {
     let dealer = dealers.get_dealer(prefix.nick)?;
-    Ok(render_info(&dealer))
+    Ok((false, render_info(&dealer)))
 }
 
 fn melp() -> impl IntoResponse {
-    Msg::new().text("explodes.").as_action()
+    (false, Msg::new().text("explodes.").as_action())
 }
 
 fn show_help() -> impl IntoResponse {
-    render_help()
+    (false, render_help())
 }
 
 fn show_admin_help() -> impl IntoResponse {
-    render_admin_help()
+    (false, render_admin_help())
 }
 
 fn show_market(
@@ -225,18 +219,20 @@ fn show_market(
     dealers: Res<Dealers>,
     location_data: Res<LocationData>,
     messages: Res<Messages>,
-) -> Result<Vec<String>> {
+) -> Result<impl IntoResponse> {
     let dealer = dealers.get_dealer(prefix.nick)?;
-
     let loc_data = location_data.get(&dealer.location).unwrap();
 
-    Ok(render_market(
-        settings.width,
-        &mut rng.0,
-        prefix.nick,
-        &dealer,
-        &loc_data.read().unwrap(),
-        &messages,
+    Ok((
+        false,
+        render_market(
+            settings.width,
+            &mut rng.0,
+            prefix.nick,
+            &dealer,
+            &loc_data.read().unwrap(),
+            &messages,
+        ),
     ))
 }
 
@@ -245,21 +241,24 @@ fn show_people(
     settings: Res<Settings>,
     dealers: Res<Dealers>,
     location_data: Res<LocationData>,
-) -> Result<Vec<String>> {
+) -> Result<impl IntoResponse> {
     let dealer = dealers.get_dealer(prefix.nick)?;
     let loc_data = location_data.get(&dealer.location).unwrap();
 
-    Ok(render_people(settings.width, &loc_data.read().unwrap()))
+    Ok((
+        false,
+        render_people(settings.width, &loc_data.read().unwrap()),
+    ))
 }
 
 fn check_flight_prices(
     prefix: IrcPrefix,
     dealers: Res<Dealers>,
     locations: Res<Locations>,
-) -> Result<Vec<String>> {
+) -> Result<impl IntoResponse> {
     let dealer = dealers.get_dealer(prefix.nick)?;
 
-    Ok(render_prices_from(&dealer.location, &locations))
+    Ok((false, render_prices_from(&dealer.location, &locations)))
 }
 
 fn fly_to(
@@ -269,7 +268,7 @@ fn fly_to(
     locations: Res<Locations>,
     mut flights: ResMut<Flights>,
     location_data: Res<LocationData>,
-) -> Result<Vec<String>> {
+) -> Result<impl IntoResponse> {
     let mut dealer = dealers.get_dealer_available_mut(prefix.nick)?;
     let destination = locations.get_matching(arguments[0])?;
 

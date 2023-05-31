@@ -1,4 +1,4 @@
-use ircie::system::{IntoResponse, Response};
+use ircie::system::IntoResponse;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, DrugWarsError>;
@@ -24,6 +24,6 @@ pub enum DrugWarsError {
 
 impl IntoResponse for DrugWarsError {
     fn response(self) -> ircie::system::Response {
-        Response::Lines(vec![format!("{}", self)])
+        format!("{}", self).response()
     }
 }
